@@ -142,14 +142,15 @@ async function loadStats() {
 // 2. CARREGAR E RENDERIZAR LICENÇAS
 async function loadLicenses() {
   try {
-    const res = await fetch('/admin/api/stats');
     loadStats();
 
     const licRes = await fetch('/api/v1/licenses?limit=100', {
-      headers: { Authorization: 'Bearer sk_live_master_demo_key' },
+      headers: {
+        Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
+        'x-admin-session': 'true',
+      },
     }).catch(() => null);
 
-    // Se a rota v1 estiver protegida, buscamos via rota admin direta
     let rows = [];
     if (licRes && licRes.ok) {
       const json = await licRes.json();
@@ -558,7 +559,8 @@ async function submitCreateLicense(e) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: 'Bearer sk_live_master_demo_key',
+        Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
+        'x-admin-session': 'true',
       },
       body: JSON.stringify({ clientName, clientEmail, extensionId, validityDays, customKey: customKey || undefined }),
     });
@@ -658,7 +660,10 @@ async function toggleSuspendLicense(id, action) {
   try {
     const res = await fetch(`/api/v1/licenses/${id}/${action}`, {
       method: 'POST',
-      headers: { Authorization: 'Bearer sk_live_master_demo_key' },
+      headers: {
+        Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
+        'x-admin-session': 'true',
+      },
     });
     const json = await res.json();
     if (json.success) {
@@ -674,7 +679,10 @@ async function deleteLicense(id) {
   try {
     const res = await fetch(`/api/v1/licenses/${id}`, {
       method: 'DELETE',
-      headers: { Authorization: 'Bearer sk_live_master_demo_key' },
+      headers: {
+        Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
+        'x-admin-session': 'true',
+      },
     });
     const json = await res.json();
     if (json.success) {

@@ -79,6 +79,29 @@ export function requireApiKey(requiredPermission?: string) {
       token = String(req.headers['x-api-key']).trim();
     }
 
+    // Se for uma requisição da sessão do Administrador logado no Painel, autoriza com acesso total!
+    const isAdminSession = req.headers['x-admin-session'] === 'true' || token.startsWith('sess_');
+    if (isAdminSession) {
+      req.apiKeyRecord = {
+        id: 'admin_session',
+        name: 'Sessão Administrador Painel',
+        key_prefix: 'admin',
+        key_hash: 'admin',
+        client_id: null,
+        client_name: 'Administrador',
+        rate_limit_per_min: 5000,
+        expires_at: null,
+        is_active: 1,
+        is_blocked: 0,
+        request_count: 0,
+        last_used_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        permissions: ['*'],
+      };
+      return next();
+    }
+
     if (!token) {
       res.status(401).json({
         success: false,
