@@ -56,13 +56,13 @@ extensionsRouter.post(
 extensionsRouter.delete(
   '/:id',
   (req: Request, res: Response): void => {
-    const ext = db.prepare('SELECT id FROM extensions WHERE id = ?').get(req.params.id);
+    const ext = db.prepare('SELECT id FROM extensions WHERE id = ?').get(String(req.params.id));
     if (!ext) {
       res.status(404).json({ success: false, error: { message: 'Extensão não encontrada' } });
       return;
     }
 
-    db.prepare('DELETE FROM extensions WHERE id = ?').run(req.params.id);
+    db.prepare('DELETE FROM extensions WHERE id = ?').run(String(req.params.id));
     res.status(200).json({ success: true, message: 'Extensão removida com sucesso' });
   }
 );

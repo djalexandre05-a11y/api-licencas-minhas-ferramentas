@@ -141,19 +141,19 @@ adminRouter.post('/keys', (req: Request, res: Response) => {
 
 // Revogar chave de API
 adminRouter.post('/keys/:id/revoke', (req: Request, res: Response) => {
-  const success = ApiKeyService.revokeKey(req.params.id);
+  const success = ApiKeyService.revokeKey(String(req.params.id));
   res.json({ success, message: success ? 'Chave revogada com sucesso' : 'Chave não encontrada' });
 });
 
 // Bloquear / Desbloquear chave
 adminRouter.post('/keys/:id/toggle-block', (req: Request, res: Response) => {
-  const success = ApiKeyService.toggleBlockKey(req.params.id);
+  const success = ApiKeyService.toggleBlockKey(String(req.params.id));
   res.json({ success, message: 'Status de bloqueio atualizado' });
 });
 
 // Rotacionar chave
 adminRouter.post('/keys/:id/rotate', (req: Request, res: Response) => {
-  const result = ApiKeyService.rotateKey(req.params.id);
+  const result = ApiKeyService.rotateKey(String(req.params.id));
   if (!result) {
     res.status(404).json({ success: false, error: { message: 'Chave não encontrada' } });
     return;
@@ -203,7 +203,7 @@ adminRouter.post('/webhooks', (req: Request, res: Response) => {
 });
 
 adminRouter.delete('/webhooks/:id', (req: Request, res: Response) => {
-  WebhookService.deleteWebhook(req.params.id);
+  WebhookService.deleteWebhook(String(req.params.id));
   res.json({ success: true, message: 'Webhook removido' });
 });
 

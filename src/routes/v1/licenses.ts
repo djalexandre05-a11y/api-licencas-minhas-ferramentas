@@ -196,7 +196,8 @@ licensesRouter.get(
   '/:id',
   requireApiKey('read'),
   (req: Request, res: Response): void => {
-    const lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(req.params.id, req.params.id) as any;
+    const idParam = String(req.params.id);
+    const lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(idParam, idParam) as any;
 
     if (!lic) {
       res.status(404).json({
@@ -317,7 +318,8 @@ licensesRouter.post(
   '/:id/suspend',
   requireApiKey('write'),
   async (req: Request, res: Response): Promise<void> => {
-    const lic = db.prepare('SELECT * FROM licenses WHERE id = ?').get(req.params.id) as any;
+    const licId = String(req.params.id);
+    const lic = db.prepare('SELECT * FROM licenses WHERE id = ?').get(licId) as any;
     if (!lic) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Licença não encontrada' } });
       return;
@@ -345,7 +347,8 @@ licensesRouter.post(
   '/:id/activate',
   requireApiKey('write'),
   async (req: Request, res: Response): Promise<void> => {
-    const lic = db.prepare('SELECT * FROM licenses WHERE id = ?').get(req.params.id) as any;
+    const licId = String(req.params.id);
+    const lic = db.prepare('SELECT * FROM licenses WHERE id = ?').get(licId) as any;
     if (!lic) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Licença não encontrada' } });
       return;
@@ -373,16 +376,17 @@ licensesRouter.delete(
   '/:id',
   requireApiKey('write'),
   (req: Request, res: Response): void => {
-    const lic = db.prepare('SELECT * FROM licenses WHERE id = ?').get(req.params.id);
+    const licId = String(req.params.id);
+    const lic = db.prepare('SELECT * FROM licenses WHERE id = ?').get(licId);
     if (!lic) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Licença não encontrada' } });
       return;
     }
 
-    db.prepare('DELETE FROM licenses WHERE id = ?').run(req.params.id);
+    db.prepare('DELETE FROM licenses WHERE id = ?').run(licId);
     res.status(200).json({
       success: true,
-      data: { id: req.params.id },
+      data: { id: licId },
       message: 'Licença excluída com sucesso',
     });
   }
