@@ -634,10 +634,18 @@ if (result.success && result.data.valid) {
   </main>
 
   <script>
-    function switchCode(group, lang) {
-      const container = event.target.closest('.endpoint-body') || event.target.closest('.card');
-      container.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
+    function switchCode(group, lang, evt) {
+      const e = evt || window.event;
+      const target = e ? (e.target || e.srcElement) : null;
+      const btn = target ? target.closest('.tab-btn') : null;
+      const container = btn ? (btn.closest('.endpoint-body') || btn.closest('.card')) : document;
+      
+      if (container) {
+        container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      }
+      if (btn) {
+        btn.classList.add('active');
+      }
 
       ['node', 'python', 'php', 'curl'].forEach(l => {
         const el = document.getElementById(`code-${group}-${l}`);
@@ -645,13 +653,39 @@ if (result.success && result.data.valid) {
       });
     }
 
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        alert('Código copiado para a área de transferência!');
+      } catch (_) {
+        prompt('Copie o código manualmente:', text);
+      }
+      document.body.removeChild(ta);
+    }
+
     function copySnippet(id) {
       const pre = document.getElementById(id);
       if (!pre) return;
-      navigator.clipboard.writeText(pre.innerText).then(() => {
-        alert('Código copiado para a área de transferência!');
-      });
+      const text = pre.innerText || pre.textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          alert('Código copiado para a área de transferência!');
+        }).catch(() => {
+          fallbackCopy(text);
+        });
+      } else {
+        fallbackCopy(text);
+      }
     }
+
+    window.switchCode = switchCode;
+    window.copySnippet = copySnippet;
   </script>
 </body>
 </html>

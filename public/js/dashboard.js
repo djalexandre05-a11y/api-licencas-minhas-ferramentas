@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   loadStats();
   loadLicenses();
+  loadWallets();
   loadExtensions();
   loadApiKeys();
   loadWebhooks();
@@ -1058,27 +1059,32 @@ function populateTopupWalletSelect(wallets) {
   const select = document.getElementById('topup-wallet-select');
   if (!select) return;
 
-  select.innerHTML = wallets
+  select.innerHTML = (wallets || [])
     .map((w) => `<option value="${w.id}">${w.name} (${w.email}) — Saldo atual: R$ ${w.balance_brl}</option>`)
     .join('');
 }
 
-function openTopupModal(walletId) {
+async function openTopupModal(walletId) {
+  if (!walletsData || walletsData.length === 0) {
+    await loadWallets();
+  }
   populateTopupWalletSelect(walletsData);
   if (walletId) {
     const select = document.getElementById('topup-wallet-select');
     if (select) select.value = walletId;
   }
-  document.getElementById('modal-topup-wallet').classList.add('active');
+  const modal = document.getElementById('modal-topup-wallet');
+  if (modal) modal.classList.add('active');
 }
 
 async function submitTopupWallet(e) {
   e.preventDefault();
-  const walletId = document.getElementById('topup-wallet-select').value;
-  const amount = Number(document.getElementById('topup-amount').value);
-  const paymentMethod = document.getElementById('topup-method').value;
-  const externalId = document.getElementById('topup-external-id').value.trim();
-  const notes = document.getElementById('topup-notes').value.trim();
+  const select = document.getElementById('topup-wallet-select');
+  const walletId = select ? select.value : '';
+  const amount = Number(document.getElementById('topup-amount')?.value);
+  const paymentMethod = document.getElementById('topup-method')?.value || 'pix_manual';
+  const externalId = document.getElementById('topup-external-id')?.value?.trim() || '';
+  const notes = document.getElementById('topup-notes')?.value?.trim() || '';
 
   if (!walletId || isNaN(amount) || amount <= 0) {
     showToast('Informe um valor de recarga válido', 'error');
@@ -1112,18 +1118,24 @@ async function submitTopupWallet(e) {
 }
 
 function openAdjustModal(walletId, walletName, currentBalance) {
-  document.getElementById('adjust-wallet-id').value = walletId;
-  document.getElementById('adjust-wallet-name').value = `${walletName} (Saldo Atual: R$ ${currentBalance})`;
-  document.getElementById('adjust-new-balance').value = currentBalance;
-  document.getElementById('adjust-reason').value = '';
-  document.getElementById('modal-adjust-wallet').classList.add('active');
+  const modal = document.getElementById('modal-adjust-wallet');
+  const wId = document.getElementById('adjust-wallet-id');
+  const wName = document.getElementById('adjust-wallet-name');
+  const wBal = document.getElementById('adjust-new-balance');
+  const wReason = document.getElementById('adjust-reason');
+
+  if (wId) wId.value = walletId;
+  if (wName) wName.value = `${walletName} (Saldo Atual: R$ ${currentBalance})`;
+  if (wBal) wBal.value = currentBalance;
+  if (wReason) wReason.value = '';
+  if (modal) modal.classList.add('active');
 }
 
 async function submitAdjustWallet(e) {
   e.preventDefault();
-  const walletId = document.getElementById('adjust-wallet-id').value;
-  const newBalance = Number(document.getElementById('adjust-new-balance').value);
-  const reason = document.getElementById('adjust-reason').value.trim();
+  const walletId = document.getElementById('adjust-wallet-id')?.value;
+  const newBalance = Number(document.getElementById('adjust-new-balance')?.value);
+  const reason = document.getElementById('adjust-reason')?.value?.trim();
 
   if (isNaN(newBalance) || newBalance < 0 || !reason) {
     showToast('Preencha o novo saldo e o motivo do ajuste', 'error');
@@ -1177,4 +1189,14 @@ async function toggleBlockWallet(walletId) {
     showToast('Erro ao alterar status da carteira', 'error');
   }
 }
+
+// Vincula todas as funções de modal e ações explicitamente no objeto window global
+window.openTopupModal = openTopupModal;
+window.submitTopupWallet = submitTopupWallet;
+window.openAdjustModal = openAdjustModal;
+window.submitAdjustWallet = submitAdjustWallet;
+window.toggleBlockWallet = toggleBlockWallet;
+window.loadWallets = loadWallets;
+window.closeModal = closeModal;
+
 
