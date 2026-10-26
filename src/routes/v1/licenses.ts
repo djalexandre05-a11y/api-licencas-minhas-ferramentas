@@ -211,8 +211,9 @@ licensesRouter.get(
 licensesRouter.get(
   '/:id',
   requireApiKey('read'),
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next): Promise<void> => {
     const idParam = String(req.params.id);
+    if (idParam === 'pricing') return next();
     let lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(idParam, idParam) as any;
 
     if (!lic) {

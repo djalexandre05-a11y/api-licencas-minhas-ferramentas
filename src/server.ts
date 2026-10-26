@@ -54,12 +54,12 @@ app.get('/api/docs', (req: Request, res: Response) => {
 });
 
 // Rotas da API REST v1
+app.use('/api/v1/wallet', walletRouter);
+app.use('/api/v1', walletRouter); // Para rota /api/v1/licenses/pricing e /api/v1/admin/wallets
 app.use('/api/v1/licenses', licensesRouter);
 app.use('/api/v1/extensions', extensionsRouter);
 app.use('/api/v1/clients', clientsRouter);
 app.use('/api/v1/account', accountRouter);
-app.use('/api/v1/wallet', walletRouter);
-app.use('/api/v1', walletRouter); // Para rota /api/v1/licenses/pricing e /api/v1/admin/wallets
 
 // Rotas administrativas internas do Painel
 app.use('/admin/api', adminRouter);
