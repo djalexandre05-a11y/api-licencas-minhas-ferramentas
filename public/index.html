@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Admin - Gerenciador v3.0 & API REST Pro</title>
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+
+  <!-- Sidebar Lateral -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-icon">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <div class="logo-text">
+        <h2>Painel Admin</h2>
+        <span>Gerenciador v3.0 & API</span>
+      </div>
+    </div>
+
+    <div class="sidebar-menu">
+      <div class="menu-group">
+        <div class="menu-group-title">Menu Principal</div>
+        <ul class="menu-items">
+          <li class="menu-item active" data-tab="tab-licenses">
+            <i class="fa-solid fa-table-cells-large"></i>
+            <span>Painel / Licenças</span>
+          </li>
+          <li class="menu-item" data-tab="tab-extensions">
+            <i class="fa-solid fa-puzzle-piece"></i>
+            <span>Extensões</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="menu-group">
+        <div class="menu-group-title">⚙️ API & Integrações</div>
+        <ul class="menu-items">
+          <li class="menu-item" data-tab="tab-keys">
+            <i class="fa-solid fa-key"></i>
+            <span>API Keys</span>
+          </li>
+          <li class="menu-item" onclick="window.open('/api/docs', '_blank')">
+            <i class="fa-solid fa-book-bookmark"></i>
+            <span>Documentação API ↗</span>
+          </li>
+          <li class="menu-item" data-tab="tab-monitoring">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Monitoramento</span>
+          </li>
+          <li class="menu-item" data-tab="tab-webhooks">
+            <i class="fa-solid fa-bell"></i>
+            <span>Webhooks</span>
+          </li>
+          <li class="menu-item" data-tab="tab-security">
+            <i class="fa-solid fa-shield-cat"></i>
+            <span>Segurança & Logs</span>
+          </li>
+          <li class="menu-item" data-tab="tab-settings">
+            <i class="fa-solid fa-sliders"></i>
+            <span>Configurações</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">AD</div>
+        <div class="user-details">
+          <h4>Administrador</h4>
+          <span>ONLINE</span>
+        </div>
+      </div>
+      <button class="action-icon-btn" title="Desconectar">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Conteúdo Principal -->
+  <main class="main-wrapper">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-title">
+        <h1 id="page-title">Gerenciador de Licenças</h1>
+        <p id="page-subtitle">Controle de acessos, extensões ativas e integração REST API</p>
+      </div>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <span class="badge-version">
+          <i class="fa-solid fa-circle-check" style="color: #10b981;"></i> API v1.0 Pronta
+        </span>
+        <a href="/api/docs" target="_blank" class="btn-secondary">
+          <i class="fa-solid fa-code"></i> Explorar Swagger UI
+        </a>
+      </div>
+    </header>
+
+    <div class="content-body">
+
+      <!-- ABA 1: PAINEL / LICENÇAS (Design idêntico ao do print) -->
+      <section id="tab-licenses" class="tab-content active">
+        <!-- Cards de Estatísticas -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <i class="fa-solid fa-shield-halved" style="color: #6366f1;"></i>
+              <span>Total de Licenças</span>
+            </div>
+            <div class="stat-value" id="stat-total-licenses">29</div>
+            <div class="stat-subtext" style="color: #6366f1;">
+              <i class="fa-solid fa-arrow-trend-up"></i> +12% esse mês
+            </div>
+            <div class="stat-progress">
+              <div class="stat-progress-bar" style="width: 75%; background-color: #6366f1;"></div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <span class="stat-dot success"></span>
+              <span>Ativas</span>
+            </div>
+            <div class="stat-value" id="stat-active-licenses">25</div>
+            <div class="stat-progress">
+              <div class="stat-progress-bar success" style="width: 86%;"></div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <span class="stat-dot danger"></span>
+              <span>Expiradas</span>
+            </div>
+            <div class="stat-value" id="stat-expired-licenses">0</div>
+            <div class="stat-progress">
+              <div class="stat-progress-bar" style="width: 0%; background-color: #ef4444;"></div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <span class="stat-dot warning"></span>
+              <span>Suspensas</span>
+            </div>
+            <div class="stat-value" id="stat-suspended-licenses">4</div>
+            <div class="stat-progress">
+              <div class="stat-progress-bar warning" style="width: 14%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabela e Ações de Licenças -->
+        <div class="card" style="margin-top: 24px;">
+          <div class="card-header-actions">
+            <div class="search-filter-box">
+              <div class="search-input-wrap">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="license-search-input" class="search-input" placeholder="Buscar por cliente, email ou chave...">
+              </div>
+              <select id="license-filter-select" class="select-filter">
+                <option value="all">Todas as licenças</option>
+                <option value="active">Somente Ativas</option>
+                <option value="suspended">Somente Suspensas</option>
+                <option value="expired">Somente Expiradas</option>
+              </select>
+            </div>
+            <button class="btn-primary" onclick="openCreateLicenseModal()">
+              <i class="fa-solid fa-plus"></i> Criar Licença
+            </button>
+          </div>
+
+          <div class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Chave de Licença</th>
+                  <th>Cliente</th>
+                  <th>Extensão</th>
+                  <th>Status</th>
+                  <th>Validade</th>
+                  <th style="text-align: right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="licenses-table-body">
+                <!-- Preenchido via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABA 2: EXTENSÕES (Idêntico ao print do usuário) -->
+      <section id="tab-extensions" class="tab-content">
+        <div class="card">
+          <div class="card-header-actions">
+            <div>
+              <h3>🧩 Extensões & Ferramentas Cadastradas</h3>
+              <p style="font-size: 13px; color: #64748b;">Todas as 20 ferramentas habilitadas para verificação de licenças por API.</p>
+            </div>
+            <button class="btn-primary" onclick="openCreateExtensionModal()">
+              <i class="fa-solid fa-plus"></i> Nova Extensão
+            </button>
+          </div>
+          <div class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th style="width: 50px;"></th>
+                  <th>Nome da Ferramenta</th>
+                  <th>Versão</th>
+                  <th>Data de Cadastro</th>
+                  <th style="text-align: right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="extensions-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABA 3: 🔑 GERENCIAMENTO DE API KEYS -->
+      <section id="tab-keys" class="tab-content">
+        <div class="card">
+          <div class="card-header-actions">
+            <div>
+              <h3>🔑 Gerenciador de Chaves de API (REST API Keys)</h3>
+              <p style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                Chaves criptografadas (SHA-256) com controle de expiração, rate limit e permissões individuais.
+              </p>
+            </div>
+            <button class="btn-primary" onclick="openCreateKeyModal()">
+              <i class="fa-solid fa-key"></i> Gerar Nova API Key
+            </button>
+          </div>
+
+          <div class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Nome / Identificação</th>
+                  <th>Prefixo da Chave</th>
+                  <th>Cliente / Sistema</th>
+                  <th>Permissões</th>
+                  <th>Rate Limit</th>
+                  <th>Uso Total</th>
+                  <th>Status</th>
+                  <th style="text-align: right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="keys-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABA 4: 📊 MONITORAMENTO -->
+      <section id="tab-monitoring" class="tab-content">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-header"><i class="fa-solid fa-server"></i> Total de Requisições</div>
+            <div class="stat-value" id="mon-total-req">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-header"><span class="stat-dot primary"></span> Requisições Hoje</div>
+            <div class="stat-value" id="mon-today-req">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-header"><span class="stat-dot success"></span> Sucesso (HTTP 2xx)</div>
+            <div class="stat-value" id="mon-success-req" style="color: #10b981;">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-header"><span class="stat-dot danger"></span> Erros (HTTP 4xx/5xx)</div>
+            <div class="stat-value" id="mon-error-req" style="color: #ef4444;">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-header"><i class="fa-regular fa-clock"></i> Tempo Médio de Resposta</div>
+            <div class="stat-value" id="mon-avg-time">0 ms</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABA 5: 🔔 WEBHOOKS -->
+      <section id="tab-webhooks" class="tab-content">
+        <div class="card">
+          <div class="card-header-actions">
+            <div>
+              <h3>🔔 Webhooks e Automações</h3>
+              <p style="font-size: 13px; color: #64748b;">Notifique seus sistemas externos quando licenças forem criadas, verificadas ou suspensas.</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-secondary" onclick="triggerTestWebhook()">
+                <i class="fa-solid fa-paper-plane"></i> Testar Disparo
+              </button>
+              <button class="btn-primary" onclick="openCreateWebhookModal()">
+                <i class="fa-solid fa-plus"></i> Novo Webhook
+              </button>
+            </div>
+          </div>
+
+          <h4 style="font-size: 14px; margin-top: 10px;">Endpoints Registrados</h4>
+          <div class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>URL de Destino</th>
+                  <th>Eventos Inscritos</th>
+                  <th>Chave Secreta (HMAC)</th>
+                  <th>Data de Cadastro</th>
+                  <th style="text-align: right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="webhooks-table-body"></tbody>
+            </table>
+          </div>
+
+          <h4 style="font-size: 14px; margin-top: 24px;">Últimas Entregas de Webhooks</h4>
+          <div class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Evento</th>
+                  <th>Destino</th>
+                  <th>Status HTTP</th>
+                  <th>Resultado</th>
+                  <th>Data/Hora</th>
+                </tr>
+              </thead>
+              <tbody id="webhook-deliveries-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABA 6: 🔐 SEGURANÇA & LOGS -->
+      <section id="tab-security" class="tab-content">
+        <div class="card">
+          <div class="card-header-actions">
+            <div>
+              <h3>🔐 Auditoria e Logs de Requisições da API em Tempo Real</h3>
+              <p style="font-size: 13px; color: #64748b;">Todas as chamadas para a API REST registradas com IP, rota, status e tempo de resposta.</p>
+            </div>
+            <button class="btn-secondary" onclick="loadRequestLogs()">
+              <i class="fa-solid fa-rotate-right"></i> Atualizar Logs
+            </button>
+          </div>
+          <div class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Método</th>
+                  <th>Rota Endpoint</th>
+                  <th>Status</th>
+                  <th>Tempo</th>
+                  <th>API Key Utilizada</th>
+                  <th>IP Origem</th>
+                  <th>Data/Hora</th>
+                </tr>
+              </thead>
+              <tbody id="logs-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABA 7: ⚙️ CONFIGURAÇÕES -->
+      <section id="tab-settings" class="tab-content">
+        <div class="card" style="max-width: 650px;">
+          <h3>⚙️ Configurações Gerais da API REST</h3>
+          <form id="settings-form" onsubmit="saveSettings(event)" style="display: flex; flex-direction: column; gap: 16px; margin-top: 10px;">
+            <div class="form-group">
+              <label>Versão da API</label>
+              <input type="text" id="setting-version" class="form-control" value="1.0.0" readonly>
+            </div>
+            <div class="form-group">
+              <label>Limite Padrão de Requisições (Rate Limit por Minuto)</label>
+              <input type="number" id="setting-rate-limit" class="form-control" value="100">
+            </div>
+            <div class="form-group">
+              <label>Origens CORS Permitidas</label>
+              <input type="text" id="setting-cors" class="form-control" value="*">
+            </div>
+            <div class="form-group">
+              <label>Tentativas de Reenvio de Webhooks</label>
+              <input type="number" id="setting-webhook-retries" class="form-control" value="3">
+            </div>
+            <button type="submit" class="btn-primary" style="align-self: flex-start;">
+              <i class="fa-solid fa-floppy-disk"></i> Salvar Configurações
+            </button>
+          </form>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- MODAL: CRIAR LICENÇA -->
+  <div id="modal-create-license" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Criar Nova Licença</h3>
+        <button class="modal-close" onclick="closeModal('modal-create-license')">&times;</button>
+      </div>
+      <form onsubmit="submitCreateLicense(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Nome do Cliente *</label>
+            <input type="text" id="lic-form-client-name" class="form-control" required placeholder="Ex: Roberto Carlos">
+          </div>
+          <div class="form-group">
+            <label>Email do Cliente *</label>
+            <input type="email" id="lic-form-client-email" class="form-control" required placeholder="Ex: cliente@email.com">
+          </div>
+          <div class="form-group">
+            <label>Extensão / Software *</label>
+            <select id="lic-form-extension" class="form-control" required>
+              <option value="dszap">DS Zap Pro (dszap)</option>
+              <option value="tele">TeleBot Pro (tele)</option>
+              <option value="sender">Mass Sender Ultra (sender)</option>
+              <option value="youtube">YT Extractor & Bot (youtube)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Validade em Dias *</label>
+            <input type="number" id="lic-form-days" class="form-control" value="365" required>
+          </div>
+          <div class="form-group">
+            <label>Chave Personalizada (Opcional - deixe vazio para gerar automático)</label>
+            <input type="text" id="lic-form-custom-key" class="form-control" placeholder="Ex: ABCD-1234-EFGH-5678">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeModal('modal-create-license')">Cancelar</button>
+          <button type="submit" class="btn-primary">Criar Licença</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: GERAR API KEY -->
+  <div id="modal-create-key" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Gerar Nova API Key</h3>
+        <button class="modal-close" onclick="closeModal('modal-create-key')">&times;</button>
+      </div>
+      <form onsubmit="submitCreateKey(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Nome da Chave / Identificador *</label>
+            <input type="text" id="key-form-name" class="form-control" required placeholder="Ex: Integração Robô Telegram">
+          </div>
+          <div class="form-group">
+            <label>Cliente ou Sistema Vinculado *</label>
+            <input type="text" id="key-form-client" class="form-control" required placeholder="Ex: Central Oficial">
+          </div>
+          <div class="form-group">
+            <label>Permissões Autorizadas</label>
+            <div class="checkbox-group">
+              <label class="checkbox-label"><input type="checkbox" name="perm" value="licenses:verify" checked> licenses:verify</label>
+              <label class="checkbox-label"><input type="checkbox" name="perm" value="read" checked> read (Consultar)</label>
+              <label class="checkbox-label"><input type="checkbox" name="perm" value="write"> write (Modificar)</label>
+              <label class="checkbox-label"><input type="checkbox" name="perm" value="admin"> admin (Acesso total)</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Expiração em Dias (deixe vazio para sem expiração)</label>
+            <input type="number" id="key-form-expires" class="form-control" placeholder="Sem expiração">
+          </div>
+          <div class="form-group">
+            <label>Limite de Requisições por Minuto (Rate Limit)</label>
+            <input type="number" id="key-form-rate" class="form-control" value="100">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeModal('modal-create-key')">Cancelar</button>
+          <button type="submit" class="btn-primary">Gerar Chave Criptografada</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: REVELAÇÃO DA CHAVE SECRETA GERADA -->
+  <div id="modal-reveal-key" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>🔑 Chave de API Gerada com Sucesso</h3>
+        <button class="modal-close" onclick="closeModal('modal-reveal-key')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="key-reveal-alert">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <strong>Atenção de Segurança:</strong> Copie sua chave de API agora. Por motivos de segurança criptográfica, esta chave completa <strong>nunca será exibida novamente</strong>.
+        </div>
+        <div class="form-group">
+          <label>Chave Secreta Gerada:</label>
+          <div class="key-reveal-box">
+            <span id="revealed-key-text">sk_live_...</span>
+            <button class="copy-btn" onclick="copyRevealedKey()" title="Copiar Chave">
+              <i class="fa-solid fa-copy" style="color: #38bdf8; font-size: 16px;"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-primary" onclick="closeModal('modal-reveal-key')">Entendi, já guardei a chave</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NOVO WEBHOOK -->
+  <div id="modal-create-webhook" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Cadastrar Webhook</h3>
+        <button class="modal-close" onclick="closeModal('modal-create-webhook')">&times;</button>
+      </div>
+      <form onsubmit="submitCreateWebhook(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>URL de Destino (HTTPS) *</label>
+            <input type="url" id="webhook-form-url" class="form-control" required placeholder="https://seu-sistema.com/webhook">
+          </div>
+          <div class="form-group">
+            <label>Eventos</label>
+            <div class="checkbox-group">
+              <label class="checkbox-label"><input type="checkbox" name="whevent" value="*" checked> Todos os eventos (*)</label>
+              <label class="checkbox-label"><input type="checkbox" name="whevent" value="license.created"> license.created</label>
+              <label class="checkbox-label"><input type="checkbox" name="whevent" value="license.verified"> license.verified</label>
+              <label class="checkbox-label"><input type="checkbox" name="whevent" value="license.suspended"> license.suspended</label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeModal('modal-create-webhook')">Cancelar</button>
+          <button type="submit" class="btn-primary">Salvar Webhook</button>
+  <!-- MODAL: NOVA EXTENSÃO -->
+  <div id="modal-create-extension" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Cadastrar Nova Ferramenta / Extensão</h3>
+        <button class="modal-close" onclick="closeModal('modal-create-extension')">&times;</button>
+      </div>
+      <form onsubmit="submitCreateExtension(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Identificador Único (ID) *</label>
+            <input type="text" id="ext-form-id" class="form-control" required placeholder="Ex: Lead Wave ou lead_wave">
+          </div>
+          <div class="form-group">
+            <label>Nome de Exibição *</label>
+            <input type="text" id="ext-form-name" class="form-control" required placeholder="Ex: Lead Wave Pro">
+          </div>
+          <div class="form-group">
+            <label>Versão *</label>
+            <input type="text" id="ext-form-version" class="form-control" value="v1.0" required>
+          </div>
+          <div class="form-group">
+            <label>Descrição (Opcional)</label>
+            <input type="text" id="ext-form-desc" class="form-control" placeholder="Descrição da ferramenta">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeModal('modal-create-extension')">Cancelar</button>
+          <button type="submit" class="btn-primary">Salvar Extensão</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>
