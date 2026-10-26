@@ -181,15 +181,11 @@ function renderLicenses(list) {
 
   tbody.innerHTML = list
     .map((lic) => {
-      const statusPill =
-        lic.status === 'active'
-          ? `<span class="status-badge active">● Ativa</span>`
-          : lic.status === 'suspended'
-          ? `<span class="status-badge suspended">● Suspensa</span>`
-          : `<span class="status-badge expired">● Expirada</span>`;
+      const statusClass = lic.status === 'active' ? 'active' : lic.status === 'suspended' ? 'suspended' : 'expired';
+      const statusLabel = lic.status === 'active' ? 'Ativa' : lic.status === 'suspended' ? 'Suspensa' : 'Expirada';
 
       return `
-      <tr>
+      <tr id="row-${lic.license_key}">
         <td>
           <div class="key-code">
             <span>${lic.license_key}</span>
@@ -200,15 +196,31 @@ function renderLicenses(list) {
         </td>
         <td>
           <div class="client-info">
-            <h4>${lic.client_name}</h4>
-            <span>${lic.client_email}</span>
+            <h4>${lic.client_name || 'Cliente'}</h4>
+            <span>${lic.client_email || ''}</span>
           </div>
         </td>
         <td>
           <span class="ext-badge">${lic.extension_id}</span>
         </td>
         <td>
-          ${statusPill}
+          <div class="status-dropdown-container" id="status-container-${lic.license_key}">
+            <button class="status-pill-btn ${statusClass}" id="status-btn-${lic.license_key}" onclick="toggleStatusMenu(event, '${lic.license_key}')" title="Alterar Status">
+              <span id="status-label-${lic.license_key}">${statusLabel}</span>
+              <i class="fa-solid fa-chevron-down" style="font-size: 10px; margin-left: 4px;"></i>
+            </button>
+            <div class="status-dropdown-menu" id="status-menu-${lic.license_key}">
+              <div class="status-dropdown-item ${lic.status === 'active' ? 'selected' : ''}" onclick="selectStatus(event, '${lic.license_key}', 'active')">
+                <span class="status-dot green"></span> Ativa
+              </div>
+              <div class="status-dropdown-item ${lic.status === 'suspended' ? 'selected' : ''}" onclick="selectStatus(event, '${lic.license_key}', 'suspended')">
+                <span class="status-dot amber"></span> Suspensa
+              </div>
+              <div class="status-dropdown-item ${lic.status === 'expired' ? 'selected' : ''}" onclick="selectStatus(event, '${lic.license_key}', 'expired')">
+                <span class="status-dot red"></span> Expirada
+              </div>
+            </div>
+          </div>
         </td>
         <td>
           <i class="fa-regular fa-calendar" style="color: #94a3b8; margin-right: 4px;"></i>
@@ -216,11 +228,7 @@ function renderLicenses(list) {
         </td>
         <td style="text-align: right;">
           <div class="actions-cell" style="justify-content: flex-end;">
-            ${
-              lic.status === 'active'
-                ? `<button class="action-icon-btn" onclick="toggleSuspendLicense('${lic.license_key}', 'suspend')" title="Suspender Licença"><i class="fa-solid fa-pause"></i></button>`
-                : `<button class="action-icon-btn" onclick="toggleSuspendLicense('${lic.license_key}', 'activate')" title="Ativar Licença"><i class="fa-solid fa-play" style="color: #10b981;"></i></button>`
-            }
+            <button class="action-icon-btn" onclick="openEditLicenseModal('${lic.license_key}')" title="Editar Licença"><i class="fa-solid fa-pencil" style="font-size: 13px;"></i></button>
             <button class="action-icon-btn danger" onclick="deleteLicense('${lic.license_key}')" title="Excluir"><i class="fa-regular fa-trash-can"></i></button>
           </div>
         </td>
@@ -545,14 +553,18 @@ function closeModal(id) {
   document.getElementById(id).classList.remove('active');
 }
 
-// SUBMIT CRIAR LICENÇA
+// SUBMIT CRIAR LICENÇA COM INSERÇÃO IMEDIATA NA TELA (SEM RELOAD)
 async function submitCreateLicense(e) {
   e.preventDefault();
-  const clientName = document.getElementById('lic-form-client-name').value;
-  const clientEmail = document.getElementById('lic-form-client-email').value;
+  const clientName = document.getElementById('lic-form-client-name').value.trim();
+  const clientEmail = document.getElementById('lic-form-client-email').value.trim();
   const extensionId = document.getElementById('lic-form-extension').value;
   const validityDays = Number(document.getElementById('lic-form-days').value) || 365;
-  const customKey = document.getElementById('lic-form-custom-key').value;
+  const customKey = document.getElementById('lic-form-custom-key').value.trim();
+
+  // Fecha o modal na hora para resposta imediata
+  closeModal('modal-create-license');
+  showToast('Gerando chave e sincronizando com Supabase...', 'info');
 
   try {
     const res = await fetch('/api/v1/licenses', {
@@ -567,16 +579,180 @@ async function submitCreateLicense(e) {
 
     const json = await res.json();
     if (!json.success) {
-      alert('Erro ao criar licença: ' + (json.error?.message || 'Falha'));
+      showToast('Erro ao criar licença: ' + (json.error?.message || 'Falha'), 'error');
       return;
     }
 
-    closeModal('modal-create-license');
-    loadLicenses();
-    alert('Licença criada com sucesso: ' + json.data.license_key);
+    const created = json.data;
+    const newLic = {
+      id: created.id || created.license_key,
+      license_key: created.license_key,
+      client_name: created.client_name || clientName,
+      client_email: created.client_email || clientEmail,
+      extension_id: created.extension_id || extensionId,
+      status: 'active',
+      expires_at: created.expires_at,
+      created_at: new Date().toISOString(),
+    };
+
+    // Insere no topo da lista em memória e re-renderiza NA HORA na tela!
+    licensesData.unshift(newLic);
+    renderLicenses(licensesData);
+    updateCardCounts();
+
+    showToast(`Licença criada e ativa no Supabase: ${created.license_key}`, 'success');
+
+    // Limpa os campos do formulário
+    document.getElementById('lic-form-client-name').value = '';
+    document.getElementById('lic-form-client-email').value = '';
+    document.getElementById('lic-form-custom-key').value = '';
   } catch (err) {
-    alert('Erro de conexão ao criar licença');
+    showToast('Erro de conexão ao criar licença', 'error');
   }
+}
+
+// DROPDOWN DE STATUS (IDÊNTICO AO PRINT)
+function toggleStatusMenu(event, key) {
+  event.stopPropagation();
+  const currentMenu = document.getElementById(`status-menu-${key}`);
+  const isShown = currentMenu?.classList.contains('show');
+
+  // Fecha todos os menus abertos
+  document.querySelectorAll('.status-dropdown-menu.show').forEach((menu) => {
+    menu.classList.remove('show');
+  });
+
+  if (!isShown && currentMenu) {
+    currentMenu.classList.add('show');
+  }
+}
+
+// Fecha menus ao clicar fora
+document.addEventListener('click', () => {
+  document.querySelectorAll('.status-dropdown-menu.show').forEach((menu) => {
+    menu.classList.remove('show');
+  });
+});
+
+// SELECIONAR STATUS DIRETO PELO DROPDOWN
+async function selectStatus(event, licenseKey, newStatus) {
+  event.stopPropagation();
+
+  // Fecha o menu
+  const menu = document.getElementById(`status-menu-${licenseKey}`);
+  if (menu) menu.classList.remove('show');
+
+  // Atualiza visualmente NA HORA no DOM
+  const btn = document.getElementById(`status-btn-${licenseKey}`);
+  const label = document.getElementById(`status-label-${licenseKey}`);
+  if (btn && label) {
+    btn.className = `status-pill-btn ${newStatus}`;
+    label.innerText = newStatus === 'active' ? 'Ativa' : newStatus === 'suspended' ? 'Suspensa' : 'Expirada';
+  }
+
+  // Atualiza no array em memória
+  const lic = licensesData.find((l) => l.license_key === licenseKey);
+  if (lic) lic.status = newStatus;
+
+  // Atualiza contadores nos cards
+  updateCardCounts();
+
+  const labelPt = newStatus === 'active' ? 'Ativa' : newStatus === 'suspended' ? 'Suspensa' : 'Expirada';
+  showToast(`Status alterado para ${labelPt}`, 'success');
+
+  // Sincroniza em background com a API e Supabase
+  try {
+    const endpoint = newStatus === 'suspended' ? 'suspend' : 'activate';
+    await fetch(`/api/v1/licenses/${licenseKey}/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
+        'x-admin-session': 'true',
+      },
+    });
+  } catch (err) {
+    console.error('Erro ao sincronizar status:', err);
+    showToast('Falha ao sincronizar status na nuvem', 'error');
+  }
+}
+
+// ATUALIZA OS CONTADORES DOS CARDS EM TEMPO REAL
+function updateCardCounts() {
+  const total = licensesData.length;
+  const active = licensesData.filter((l) => l.status === 'active').length;
+  const suspended = licensesData.filter((l) => l.status === 'suspended').length;
+  const expired = licensesData.filter((l) => l.status === 'expired').length;
+
+  const totalEl = document.getElementById('stat-total-licenses');
+  const activeEl = document.getElementById('stat-active-licenses');
+  const suspEl = document.getElementById('stat-suspended-licenses');
+  const expEl = document.getElementById('stat-expired-licenses');
+
+  if (totalEl) totalEl.innerText = total;
+  if (activeEl) activeEl.innerText = active;
+  if (suspEl) suspEl.innerText = suspended;
+  if (expEl) expEl.innerText = expired;
+}
+
+// EXCLUIR LICENÇA COM REMOÇÃO INSTANTÂNEA DA TELA
+async function deleteLicense(key) {
+  if (!confirm(`Deseja realmente excluir a licença ${key}? Esta ação não pode ser desfeita.`)) return;
+
+  // Remove da tela NA HORA
+  const row = document.getElementById(`row-${key}`);
+  if (row) row.remove();
+
+  licensesData = licensesData.filter((l) => l.license_key !== key);
+  updateCardCounts();
+  showToast('Licença excluída com sucesso', 'info');
+
+  // Remove no banco e Supabase em background
+  try {
+    await fetch(`/api/v1/licenses/${key}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
+        'x-admin-session': 'true',
+      },
+    });
+  } catch (err) {
+    console.error('Erro ao excluir:', err);
+  }
+}
+
+// EDITAR LICENÇA
+function openEditLicenseModal(key) {
+  const lic = licensesData.find((l) => l.license_key === key);
+  if (!lic) return;
+  const newName = prompt(`Editar nome do cliente para ${key}:`, lic.client_name || '');
+  if (newName === null) return;
+  lic.client_name = newName.trim() || lic.client_name;
+  renderLicenses(licensesData);
+  showToast('Dados da licença atualizados', 'success');
+}
+
+// TOAST NOTIFICATIONS PROFISSIONAIS (SEM TRAVAR COM ALERT)
+function showToast(message, type = 'success') {
+  let container = document.getElementById('global-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'global-toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast-msg ${type}`;
+  const icon = type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-circle-xmark' : 'fa-circle-info';
+  toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(40px)';
+    setTimeout(() => toast.remove(), 250);
+  }, 3500);
 }
 
 // SUBMIT GERAR API KEY
@@ -652,44 +828,6 @@ async function triggerTestWebhook() {
     loadWebhooks();
   } catch (err) {
     alert('Erro ao disparar teste de webhook');
-  }
-}
-
-// AÇÕES RÁPIDAS DE LICENÇA
-async function toggleSuspendLicense(id, action) {
-  try {
-    const res = await fetch(`/api/v1/licenses/${id}/${action}`, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
-        'x-admin-session': 'true',
-      },
-    });
-    const json = await res.json();
-    if (json.success) {
-      loadLicenses();
-    }
-  } catch (err) {
-    alert('Erro ao alterar status da licença');
-  }
-}
-
-async function deleteLicense(id) {
-  if (!confirm('Deseja realmente excluir esta licença? Esta ação não pode ser desfeita.')) return;
-  try {
-    const res = await fetch(`/api/v1/licenses/${id}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
-        'x-admin-session': 'true',
-      },
-    });
-    const json = await res.json();
-    if (json.success) {
-      loadLicenses();
-    }
-  } catch (err) {
-    alert('Erro ao excluir licença');
   }
 }
 
