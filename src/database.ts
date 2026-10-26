@@ -155,7 +155,106 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_audit_created ON api_audit_logs(created_at);
   `);
 
-  // 11. Usuários Administradores para Login do Painel
+  // 11. Carteiras dos Revendedores (valores sempre em centavos inteiros)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS reseller_wallets (
+      id TEXT PRIMARY KEY,
+      reseller_id TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      balance_cents INTEGER NOT NULL DEFAULT 0 CHECK(balance_cents >= 0),
+      total_credited_cents INTEGER NOT NULL DEFAULT 0,
+      total_debited_cents INTEGER NOT NULL DEFAULT 0,
+      total_licenses_generated INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL CHECK(status IN ('active', 'blocked', 'suspended')) DEFAULT 'active',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_wallets_reseller ON reseller_wallets(reseller_id);
+    CREATE INDEX IF NOT EXISTS idx_wallets_email ON reseller_wallets(email);
+  `);
+
+  // 12. Extrato Financeiro / Movimentações da Carteira
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS wallet_transactions (
+      id TEXT PRIMARY KEY,
+      wallet_id TEXT NOT NULL REFERENCES reseller_wallets(id) ON DELETE CASCADE,
+      type TEXT NOT NULL CHECK(type IN ('credit', 'debit', 'adjustment', 'refund')),
+      amount_cents INTEGER NOT NULL,
+      balance_before_cents INTEGER NOT NULL,
+      balance_after_cents INTEGER NOT NULL,
+      description TEXT NOT NULL,
+      reference_id TEXT,
+      idempotency_key TEXT UNIQUE,
+      created_by TEXT NOT NULL DEFAULT 'system',
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_transactions_wallet ON wallet_transactions(wallet_id);
+    CREATE INDEX IF NOT EXISTS idx_transactions_created ON wallet_transactions(created_at);
+  `);
+
+  // 13. Tabela de Preços de Emissão por Produto/Revendedor
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS license_pricing (
+      id TEXT PRIMARY KEY,
+      extension_id TEXT,
+      wallet_id TEXT REFERENCES reseller_wallets(id) ON DELETE CASCADE,
+      price_cents INTEGER NOT NULL DEFAULT 1500,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
+  // 14. Registro de Cobranças por Licença Gerada
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS license_charges (
+      id TEXT PRIMARY KEY,
+      license_id TEXT NOT NULL,
+      wallet_id TEXT NOT NULL REFERENCES reseller_wallets(id) ON DELETE CASCADE,
+      transaction_id TEXT NOT NULL REFERENCES wallet_transactions(id) ON DELETE CASCADE,
+      amount_cents INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'BRL',
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_charges_lic ON license_charges(license_id);
+  `);
+
+  // 15. Registro de Recargas (Manual / Pix / Mercado Pago)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS wallet_topups (
+      id TEXT PRIMARY KEY,
+      wallet_id TEXT NOT NULL REFERENCES reseller_wallets(id) ON DELETE CASCADE,
+      amount_cents INTEGER NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('pending', 'approved', 'rejected')) DEFAULT 'approved',
+      payment_method TEXT NOT NULL DEFAULT 'manual_pix',
+      external_id TEXT,
+      notes TEXT,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `);
+
+  // 16. Registro de Idempotência de Requisições
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS idempotency_records (
+      id TEXT PRIMARY KEY,
+      idempotency_key TEXT UNIQUE NOT NULL,
+      request_path TEXT NOT NULL,
+      request_hash TEXT NOT NULL,
+      response_status INTEGER NOT NULL,
+      response_body TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_idempotency_key ON idempotency_records(idempotency_key);
+  `);
+
+  // Migração segura para coluna wallet_id na tabela api_keys
+  try {
+    db.exec('ALTER TABLE api_keys ADD COLUMN wallet_id TEXT REFERENCES reseller_wallets(id);');
+  } catch (_) {}
+
+  // 17. Usuários Administradores para Login do Painel
   db.exec(`
     CREATE TABLE IF NOT EXISTS admin_users (
       id TEXT PRIMARY KEY,
@@ -166,21 +265,20 @@ export function initDatabase() {
     );
   `);
 
-  // Criar administrador padrão se não existir (senha: admin123456)
-  const defaultAdmin = db.prepare('SELECT id FROM admin_users LIMIT 1').get();
-  if (!defaultAdmin) {
-    const defaultPassHash = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'; // sha256 de "admin123456"
+  // Criar ou atualizar administrador padrão com o email oficial autobotdigital21@outlook.com
+  const defaultPassHash = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'; // sha256 de "admin123456"
+  try {
     db.prepare(`
-      INSERT INTO admin_users (id, email, password_hash, created_at, updated_at)
+      INSERT OR REPLACE INTO admin_users (id, email, password_hash, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?)
     `).run(
       'admin_1',
-      'autobotdigital515@gmail.com',
+      'autobotdigital21@outlook.com',
       defaultPassHash,
       new Date().toISOString(),
       new Date().toISOString()
     );
-  }
+  } catch (_) {}
 
   seedData();
 }
@@ -305,4 +403,34 @@ function seedData() {
       );
     }
   }
+
+  // Preço padrão global de R$ 15,00 por emissão (1500 centavos)
+  const defaultPricing = db.prepare('SELECT id FROM license_pricing WHERE extension_id IS NULL AND wallet_id IS NULL').get();
+  if (!defaultPricing) {
+    db.prepare(`
+      INSERT INTO license_pricing (id, extension_id, wallet_id, price_cents, is_active, created_at, updated_at)
+      VALUES ('prc_default', NULL, NULL, 1500, 1, ?, ?)
+    `).run(new Date().toISOString(), new Date().toISOString());
+  }
+
+  // Carteira inicial do revendedor Smart Lojas com R$ 150,00 (15000 centavos) para testes
+  const smartWallet = db.prepare("SELECT id FROM reseller_wallets WHERE reseller_id = 'res_smartlojas'").get();
+  if (!smartWallet) {
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO reseller_wallets (
+        id, reseller_id, name, email, balance_cents, total_credited_cents, total_debited_cents,
+        total_licenses_generated, status, created_at, updated_at
+      ) VALUES ('wal_smartlojas', 'res_smartlojas', 'Smart Lojas Bot', 'contato@smartlojas.com.br', 15000, 15000, 0, 0, 'active', ?, ?)
+    `).run(now, now);
+
+    // Transação inicial de crédito
+    db.prepare(`
+      INSERT INTO wallet_transactions (
+        id, wallet_id, type, amount_cents, balance_before_cents, balance_after_cents,
+        description, created_by, created_at
+      ) VALUES ('tx_init_smart', 'wal_smartlojas', 'credit', 15000, 0, 15000, 'Saldo inicial autorizado (R$ 150,00)', 'admin_manual', ?)
+    `).run(now);
+  }
 }
+

@@ -517,11 +517,118 @@ if (result.success && result.data.valid) {
           <tr><td><code>200 OK</code></td><td>—</td><td>Operação concluída com sucesso</td></tr>
           <tr><td><code>201 Created</code></td><td>—</td><td>Licença criada e gerada com sucesso</td></tr>
           <tr><td><code>401 Unauthorized</code></td><td><code>INVALID_API_KEY</code></td><td>Chave ausente, incorreta ou revogada</td></tr>
+          <tr><td><code>402 Payment Required</code></td><td><code>INSUFFICIENT_BALANCE</code></td><td>Saldo insuficiente na carteira (Exige R$ 15,00 por licença)</td></tr>
           <tr><td><code>403 Forbidden</code></td><td><code>INSUFFICIENT_PERMISSIONS</code></td><td>Sua chave não tem permissão para esta rota</td></tr>
           <tr><td><code>404 Not Found</code></td><td><code>EXTENSION_NOT_FOUND</code></td><td>A ferramenta informada não existe</td></tr>
           <tr><td><code>429 Too Many Requests</code></td><td><code>RATE_LIMIT_EXCEEDED</code></td><td>Limite de requisições por minuto atingido</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- 5. Sistema de Carteira e Cobrança R$ 15,00 por Licença -->
+    <div class="card" style="border-left: 4px solid #10b981;">
+      <h2 class="card-title">
+        <i class="fa-solid fa-wallet" style="color: #10b981;"></i> 5. Sistema de Carteira Pré-Paga & Cobrança Automática (Smart Lojas Bot)
+      </h2>
+      <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">
+        Cada revendedor possui uma carteira financeira pré-paga associada à sua <code>API Key</code>. A cada chamada de criação de licença via API (<code>POST /api/v1/licenses</code>), o valor de <strong>R$ 15,00</strong> é debitado automaticamente do saldo disponível da carteira.
+      </p>
+
+      <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 14px; margin-bottom: 20px;">
+        <strong style="color: #34d399; font-size: 14px; display: block; margin-bottom: 4px;">Fluxo de Integração Smart Lojas Bot:</strong>
+        <ol style="margin-left: 20px; font-size: 13.5px; color: #cbd5e1; line-height: 1.8;">
+          <li>O cliente final adquire a licença no bot por <strong>R$ 30,00</strong>.</li>
+          <li>O Mercado Pago confirma o recebimento do Pix no bot.</li>
+          <li>O bot Smart Lojas envia uma requisição <code>POST /api/v1/licenses</code> autenticada com sua chave.</li>
+          <li>A API valida o saldo da carteira, debita <strong>R$ 15,00</strong>, gera a licença no banco/Supabase e retorna a chave com os dados de cobrança.</li>
+          <li>O bot entrega a chave ao comprador no Telegram instantaneamente.</li>
+        </ol>
+      </div>
+
+      <!-- Endpoint Saldo -->
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method-tag get">GET</span>
+          <span class="endpoint-path">/api/v1/wallet/balance</span>
+          <span class="endpoint-desc">Consulta o saldo atual da carteira</span>
+        </div>
+        <div class="endpoint-body">
+          <p style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Exemplo de resposta (200 OK):</p>
+          <pre><code>{
+  "success": true,
+  "data": {
+    "wallet_id": "wal_smartlojas",
+    "name": "Smart Lojas Bot Revenda",
+    "balance": 135.00,
+    "currency": "BRL",
+    "licenses_generated": 1,
+    "status": "active"
+  }
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- Endpoint Preço -->
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method-tag get">GET</span>
+          <span class="endpoint-path">/api/v1/licenses/pricing</span>
+          <span class="endpoint-desc">Consulta o custo de emissão por licença</span>
+        </div>
+        <div class="endpoint-body">
+          <pre><code>{
+  "success": true,
+  "data": {
+    "extension_id": "default",
+    "price_per_license": 15.00,
+    "currency": "BRL"
+  }
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- Endpoint Extrato -->
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method-tag get">GET</span>
+          <span class="endpoint-path">/api/v1/wallet/transactions</span>
+          <span class="endpoint-desc">Histórico completo de débitos e recargas</span>
+        </div>
+        <div class="endpoint-body">
+          <pre><code>{
+  "success": true,
+  "data": [
+    {
+      "id": "tx_...",
+      "type": "debit",
+      "amount": 15.00,
+      "balance_after": 135.00,
+      "description": "Cobrança automática - Emissão de licença: youtube",
+      "created_at": "2026-10-26T01:22:00Z"
+    }
+  ]
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- Proteção de Saldo Insuficiente -->
+      <div class="endpoint" style="border-color: rgba(239, 68, 68, 0.4);">
+        <div class="endpoint-header" style="background: rgba(239, 68, 68, 0.1);">
+          <span class="method-tag" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);">402</span>
+          <span class="endpoint-path" style="color: #fca5a5;">Retorno quando o saldo for inferior a R$ 15,00</span>
+        </div>
+        <div class="endpoint-body">
+          <pre><code>{
+  "error": {
+    "code": "INSUFFICIENT_BALANCE",
+    "message": "Saldo insuficiente para gerar a licença. Saldo atual: R$ 10.00. Valor necessário: R$ 15.00. Recarregue sua carteira para continuar.",
+    "current_balance": 10.00,
+    "required_amount": 15.00,
+    "currency": "BRL"
+  }
+}</code></pre>
+        </div>
+      </div>
     </div>
 
   </main>

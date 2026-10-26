@@ -39,6 +39,10 @@
       <div class="menu-group">
         <div class="menu-group-title">⚙️ API & Integrações</div>
         <ul class="menu-items">
+          <li class="menu-item" data-tab="tab-wallets">
+            <i class="fa-solid fa-wallet"></i>
+            <span>Carteiras & Revendedores</span>
+          </li>
           <li class="menu-item" data-tab="tab-keys">
             <i class="fa-solid fa-key"></i>
             <span>API Keys</span>
@@ -72,7 +76,7 @@
         <div class="user-avatar">AD</div>
         <div class="user-details">
           <h4>Administrador</h4>
-          <span id="admin-email-label" style="font-size: 10px; color: #94a3b8; display: block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ONLINE</span>
+          <span id="admin-email-label" style="font-size: 10px; color: #94a3b8; display: block; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">autobotdigital21@outlook.com</span>
         </div>
       </div>
       <button class="action-icon-btn" onclick="logoutAdmin()" title="Desconectar / Sair">
@@ -217,6 +221,110 @@
                 </tr>
               </thead>
               <tbody id="extensions-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABA: 💰 CARTEIRAS & REVENDEDORES (COBRANÇA R$ 15,00/LICENÇA) -->
+      <section id="tab-wallets" class="tab-content">
+        <!-- Métricas Financeiras -->
+        <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 24px;">
+          <div class="metric-card primary">
+            <div class="metric-icon"><i class="fa-solid fa-wallet"></i></div>
+            <div class="metric-details">
+              <span>SALDO EM CARTEIRAS</span>
+              <h2 id="wallet-stat-total-balance">R$ 150,00</h2>
+              <small style="color: #a5b4fc;"><i class="fa-solid fa-check"></i> Saldo pré-pago ativo</small>
+            </div>
+          </div>
+          <div class="metric-card success">
+            <div class="metric-icon"><i class="fa-solid fa-tag"></i></div>
+            <div class="metric-details">
+              <span>CUSTO POR LICENÇA</span>
+              <h2>R$ 15,00</h2>
+              <small style="color: #86efac;">Débito automático</small>
+            </div>
+          </div>
+          <div class="metric-card info">
+            <div class="metric-icon"><i class="fa-solid fa-circle-arrow-down"></i></div>
+            <div class="metric-details">
+              <span>TOTAL RECARGAS</span>
+              <h2 id="wallet-stat-total-topups">R$ 150,00</h2>
+              <small style="color: #93c5fd;">Pix / Manual</small>
+            </div>
+          </div>
+          <div class="metric-card warning">
+            <div class="metric-icon"><i class="fa-solid fa-receipt"></i></div>
+            <div class="metric-details">
+              <span>TOTAL CONSUMIDO</span>
+              <h2 id="wallet-stat-total-consumed">R$ 0,00</h2>
+              <small style="color: #fde68a;">0 licenças pagas</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabela de Carteiras de Revendedores -->
+        <div class="card" style="margin-bottom: 24px;">
+          <div class="card-header-actions">
+            <div>
+              <h3>💰 Carteiras Financeiras dos Revendedores (Bots & Integrações)</h3>
+              <p style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                Cada revendedor possui uma carteira pré-paga individual. O valor de <strong>R$ 15,00</strong> é debitado automaticamente ao emitir uma licença.
+              </p>
+            </div>
+            <button class="btn-primary" onclick="openTopupModal()">
+              <i class="fa-solid fa-plus-circle"></i> Adicionar Saldo Manual (Pix)
+            </button>
+          </div>
+
+          <div class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Revendedor / Bot</th>
+                  <th>Identificador</th>
+                  <th>Saldo Disponível</th>
+                  <th>Total Recargas</th>
+                  <th>Total Consumido</th>
+                  <th>Licenças Emitidas</th>
+                  <th>Status</th>
+                  <th style="text-align: right;">Ações Financeiras</th>
+                </tr>
+              </thead>
+              <tbody id="wallets-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Extrato Financeiro Recente -->
+        <div class="card">
+          <div class="card-header-actions">
+            <div>
+              <h3>📋 Extrato de Movimentações & Auditoria Financeira</h3>
+              <p style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                Histórico imutável de todas as recargas, consumos de licenças (-R$ 15,00) e estornos.
+              </p>
+            </div>
+            <button class="btn-secondary" onclick="loadWallets()">
+              <i class="fa-solid fa-rotate-right"></i> Atualizar Extrato
+            </button>
+          </div>
+
+          <div class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Data / Hora</th>
+                  <th>Tipo</th>
+                  <th>Valor</th>
+                  <th>Saldo Resultante</th>
+                  <th>Descrição da Operação</th>
+                  <th>Idempotência / Ref</th>
+                  <th>Responsável</th>
+                </tr>
+              </thead>
+              <tbody id="transactions-table-body"></tbody>
             </table>
           </div>
         </div>
@@ -585,6 +693,87 @@
         <div class="modal-footer">
           <button type="button" class="btn-secondary" onclick="closeModal('modal-create-extension')">Cancelar</button>
           <button type="submit" class="btn-primary">Salvar Extensão</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: RECARGA DE SALDO NA CARTEIRA -->
+  <div id="modal-topup-wallet" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>💰 Adicionar Saldo na Carteira (Recarga)</h3>
+        <button class="modal-close" onclick="closeModal('modal-topup-wallet')">&times;</button>
+      </div>
+      <form onsubmit="submitTopupWallet(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Selecione a Carteira do Revendedor *</label>
+            <select id="topup-wallet-select" class="form-control" required></select>
+          </div>
+          <div class="form-group">
+            <label>Valor da Recarga (R$) *</label>
+            <div style="position: relative;">
+              <span style="position: absolute; left: 12px; top: 10px; font-weight: 700; color: #64748b;">R$</span>
+              <input type="number" step="0.01" min="1.00" id="topup-amount" class="form-control" style="padding-left: 40px;" required placeholder="150.00">
+            </div>
+            <small style="color: #64748b; font-size: 11px; margin-top: 4px; display: block;">
+              Ex: R$ 150,00 permite a emissão de exatamente 10 licenças de R$ 15,00.
+            </small>
+          </div>
+          <div class="form-group">
+            <label>Forma de Pagamento</label>
+            <select id="topup-method" class="form-control">
+              <option value="pix_manual">Pix Manual (Confirmado)</option>
+              <option value="mercado_pago">Mercado Pago / Gateway</option>
+              <option value="transferencia">Transferência Bancária</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Identificador Externo / ID Pix / Comprovante (Opcional)</label>
+            <input type="text" id="topup-external-id" class="form-control" placeholder="Ex: PIX-9821831298">
+          </div>
+          <div class="form-group">
+            <label>Observações Internas</label>
+            <input type="text" id="topup-notes" class="form-control" placeholder="Recarga autorizada pelo administrador">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeModal('modal-topup-wallet')">Cancelar</button>
+          <button type="submit" class="btn-primary" style="background: #10b981;">
+            <i class="fa-solid fa-check"></i> Confirmar e Creditar Saldo
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: AJUSTE FINANCEIRO AUDITADO -->
+  <div id="modal-adjust-wallet" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>⚖️ Ajuste Financeiro de Saldo</h3>
+        <button class="modal-close" onclick="closeModal('modal-adjust-wallet')">&times;</button>
+      </div>
+      <form onsubmit="submitAdjustWallet(event)">
+        <input type="hidden" id="adjust-wallet-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Revendedor / Carteira</label>
+            <input type="text" id="adjust-wallet-name" class="form-control" readonly>
+          </div>
+          <div class="form-group">
+            <label>Novo Saldo Definido (R$) *</label>
+            <input type="number" step="0.01" min="0.00" id="adjust-new-balance" class="form-control" required placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label>Motivo Obrigatório do Ajuste (Auditoria) *</label>
+            <input type="text" id="adjust-reason" class="form-control" required placeholder="Ex: Correção de saldo após estorno manual">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeModal('modal-adjust-wallet')">Cancelar</button>
+          <button type="submit" class="btn-primary">Salvar Ajuste</button>
         </div>
       </form>
     </div>

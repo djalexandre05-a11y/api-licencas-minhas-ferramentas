@@ -8,6 +8,7 @@ import { licensesRouter } from './routes/v1/licenses.js';
 import { extensionsRouter } from './routes/v1/extensions.js';
 import { clientsRouter } from './routes/v1/clients.js';
 import { accountRouter } from './routes/v1/account.js';
+import { walletRouter } from './routes/v1/wallet.js';
 import { adminRouter } from './routes/adminRoutes.js';
 import { openApiSpec } from './docs/openapi.js';
 
@@ -57,6 +58,8 @@ app.use('/api/v1/licenses', licensesRouter);
 app.use('/api/v1/extensions', extensionsRouter);
 app.use('/api/v1/clients', clientsRouter);
 app.use('/api/v1/account', accountRouter);
+app.use('/api/v1/wallet', walletRouter);
+app.use('/api/v1', walletRouter); // Para rota /api/v1/licenses/pricing e /api/v1/admin/wallets
 
 // Rotas administrativas internas do Painel
 app.use('/admin/api', adminRouter);

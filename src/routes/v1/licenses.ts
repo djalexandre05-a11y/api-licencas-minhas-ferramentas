@@ -4,6 +4,7 @@ import { db } from '../../database.js';
 import { requireApiKey } from '../../auth/authMiddleware.js';
 import { WebhookService } from '../../services/webhookService.js';
 import { SupabaseService } from '../../services/supabaseService.js';
+import { WalletService } from '../../services/walletService.js';
 
 export const licensesRouter = Router();
 
@@ -255,6 +256,19 @@ licensesRouter.post(
   requireApiKey('write'),
   async (req: Request, res: Response): Promise<void> => {
     const { clientName, clientEmail, extensionId, customKey, validityDays = 365 } = req.body;
+    const idempotencyKey = req.headers['idempotency-key'] ? String(req.headers['idempotency-key']).trim() : undefined;
+
+    // 1. Verificação de idempotência (evita cobrança dupla e duplicidade de licença)
+    if (idempotencyKey) {
+      const cached = db.prepare('SELECT * FROM idempotency_records WHERE idempotency_key = ?').get(idempotencyKey) as any;
+      if (cached) {
+        try {
+          const body = JSON.parse(cached.response_body);
+          res.status(cached.response_status).json(body);
+          return;
+        } catch (_) {}
+      }
+    }
 
     if (!clientName || !clientEmail || !extensionId) {
       res.status(422).json({
@@ -278,7 +292,59 @@ licensesRouter.post(
       } catch (_) {}
     }
 
-    // Obter ou criar cliente
+    const apiKey = (req as any).apiKey;
+    const isAdminSession = req.headers['x-admin-session'] === 'true' || Boolean((req as any).user);
+
+    // 2. Cobrança automática de R$ 15,00 da Carteira do Revendedor
+    let walletDebit: { charged_cents: number; amount_charged: number; balance_after: number; transaction_id: string } | null = null;
+
+    if (apiKey) {
+      try {
+        const wallet = WalletService.getOrCreateWalletForApiKey(apiKey);
+        const tempLicId = `lic_pending_${crypto.randomUUID().slice(0, 8)}`;
+
+        walletDebit = WalletService.debitForLicense({
+          walletId: wallet.id,
+          extensionId: cleanExt,
+          licenseId: tempLicId,
+          idempotencyKey,
+          createdBy: apiKey.name || 'api_key',
+        });
+      } catch (err: any) {
+        if (err.code === 'INSUFFICIENT_BALANCE') {
+          res.status(402).json({
+            success: false,
+            error: {
+              code: 'INSUFFICIENT_BALANCE',
+              message: 'Saldo insuficiente para gerar a licença.',
+              required_amount: err.required_amount || 15.0,
+              current_balance: err.current_balance || 0.0,
+              currency: 'BRL',
+            },
+          });
+          return;
+        }
+
+        if (err.code === 'WALLET_BLOCKED') {
+          res.status(403).json({
+            success: false,
+            error: {
+              code: 'WALLET_BLOCKED',
+              message: 'A carteira deste revendedor está bloqueada para novas emissões.',
+            },
+          });
+          return;
+        }
+
+        res.status(400).json({
+          success: false,
+          error: { code: 'WALLET_ERROR', message: err.message },
+        });
+        return;
+      }
+    }
+
+    // 3. Obter ou criar cliente
     let client = db.prepare('SELECT * FROM clients WHERE email = ?').get(clientEmail) as any;
     if (!client) {
       const clientId = `cli_${crypto.randomUUID()}`;
@@ -319,6 +385,14 @@ licensesRouter.post(
 
       const createdLicense = db.prepare('SELECT * FROM licenses WHERE id = ?').get(licenseId);
 
+      // Atualiza referência da transação de carteira com o ID real da licença
+      if (walletDebit?.transaction_id) {
+        try {
+          db.prepare('UPDATE wallet_transactions SET reference_id = ? WHERE id = ?').run(licenseId, walletDebit.transaction_id);
+          db.prepare('UPDATE license_charges SET license_id = ? WHERE transaction_id = ?').run(licenseId, walletDebit.transaction_id);
+        } catch (_) {}
+      }
+
       // Sincronização em tempo real com o Supabase oficial (onde as extensões e softwares validam)
       try {
         await SupabaseService.createLicense({
@@ -337,20 +411,42 @@ licensesRouter.post(
       // Webhook assíncrono
       WebhookService.trigger('license.created', createdLicense).catch(() => {});
 
-      res.status(201).json({
+      const responsePayload = {
         success: true,
-        data: createdLicense || {
-          id: licenseId,
+        data: {
           license_key: licenseKey,
-          client_name: client.name,
-          client_email: client.email,
-          extension_id: cleanExt,
+          extensionId: cleanExt,
+          validityDays,
+          amount_charged: walletDebit ? walletDebit.amount_charged : 0.0,
+          currency: 'BRL',
+          balance_after: walletDebit ? walletDebit.balance_after : undefined,
           status: 'active',
           expires_at: expiresAt,
+          client: {
+            name: client.name,
+            email: client.email,
+          },
         },
-        message: 'Licença criada com sucesso',
-      });
+        message: 'Licença criada e cobrada com sucesso da carteira',
+      };
+
+      // Salva registro de idempotência se chave fornecida
+      if (idempotencyKey) {
+        try {
+          db.prepare(`
+            INSERT INTO idempotency_records (id, idempotency_key, request_path, request_hash, response_status, response_body, created_at)
+            VALUES (?, ?, '/api/v1/licenses', ?, 201, ?, ?)
+          `).run(`idmp_${crypto.randomUUID()}`, idempotencyKey, cleanExt, JSON.stringify(responsePayload), now.toISOString());
+        } catch (_) {}
+      }
+
+      res.status(201).json(responsePayload);
     } catch (err: any) {
+      // Estorna o valor da carteira se a inserção da licença falhar
+      if (walletDebit?.transaction_id) {
+        WalletService.refundTransaction(walletDebit.transaction_id, 'Falha interna ao gravar licença');
+      }
+
       if (err.message?.includes('UNIQUE')) {
         res.status(409).json({
           success: false,

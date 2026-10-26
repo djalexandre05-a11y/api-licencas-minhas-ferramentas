@@ -89,6 +89,7 @@ function initTabs() {
 
       // Recarrega dados específicos da aba
       if (targetTab === 'tab-licenses') loadLicenses();
+      if (targetTab === 'tab-wallets') loadWallets();
       if (targetTab === 'tab-keys') loadApiKeys();
       if (targetTab === 'tab-monitoring') loadMonitoring();
       if (targetTab === 'tab-webhooks') loadWebhooks();
@@ -101,6 +102,7 @@ function updateHeaderTitle(tabId) {
   const titleMap = {
     'tab-licenses': { title: 'Gerenciador de Licenças', sub: 'Controle de acessos, extensões ativas e integração REST API' },
     'tab-extensions': { title: 'Extensões Registradas', sub: 'Módulos e softwares autorizados a validar licenças' },
+    'tab-wallets': { title: '💰 Carteiras & Revendedores', sub: 'Gestão de saldo pré-pago, cobrança automática de R$ 15,00 por licença e recargas Pix' },
     'tab-keys': { title: '🔑 API Keys & Autenticação', sub: 'Chaves criptografadas (SHA-256) com controle de expiração e rate limit' },
     'tab-monitoring': { title: '📊 Monitoramento & Métricas', sub: 'Volume de requisições, tempo de resposta e performance' },
     'tab-webhooks': { title: '🔔 Webhooks & Eventos', sub: 'Disparo automatizado de notificações para sistemas externos' },
@@ -868,7 +870,7 @@ async function deleteWebhook(id) {
 // UTILITÁRIOS
 function copyToClipboard(text) {
   navigator.clipboard.writeText(text).then(() => {
-    // Feedback sutil
+    showToast('Chave copiada para a área de transferência!', 'success');
   });
 }
 
@@ -881,3 +883,298 @@ function formatDate(dateStr) {
     return dateStr;
   }
 }
+
+function formatDateTime(dateStr) {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  } catch (_) {
+    return dateStr;
+  }
+}
+
+// ==========================================
+// 💰 GESTÃO DE CARTEIRAS E REVENDEDORES
+// ==========================================
+let walletsData = [];
+
+async function loadWallets() {
+  try {
+    const res = await fetch('/api/v1/admin/wallets', {
+      headers: {
+        Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
+        'x-admin-session': 'true',
+      },
+    });
+
+    const json = await res.json();
+    if (!json.success) return;
+
+    walletsData = json.data || [];
+
+    // Calcula métricas
+    let totalBalanceCents = 0;
+    let totalCreditedCents = 0;
+    let totalDebitedCents = 0;
+    let totalLicenses = 0;
+
+    walletsData.forEach((w) => {
+      totalBalanceCents += w.balance_cents || 0;
+      totalCreditedCents += w.total_credited_cents || 0;
+      totalDebitedCents += w.total_debited_cents || 0;
+      totalLicenses += w.total_licenses_generated || 0;
+    });
+
+    const balEl = document.getElementById('wallet-stat-total-balance');
+    const topEl = document.getElementById('wallet-stat-total-topups');
+    const conEl = document.getElementById('wallet-stat-total-consumed');
+
+    if (balEl) balEl.innerText = `R$ ${(totalBalanceCents / 100).toFixed(2)}`;
+    if (topEl) topEl.innerText = `R$ ${(totalCreditedCents / 100).toFixed(2)}`;
+    if (conEl) conEl.innerText = `R$ ${(totalDebitedCents / 100).toFixed(2)}`;
+
+    // Renderiza tabela de carteiras
+    renderWalletsTable(walletsData);
+
+    // Carrega extrato global
+    loadWalletTransactions();
+
+    // Popula select da modal de recarga
+    populateTopupWalletSelect(walletsData);
+  } catch (err) {
+    console.error('Erro ao carregar carteiras:', err);
+  }
+}
+
+function renderWalletsTable(list) {
+  const tbody = document.getElementById('wallets-table-body');
+  if (!tbody) return;
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">Nenhuma carteira de revendedor cadastrada.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list
+    .map((w) => {
+      const statusPill =
+        w.status === 'active'
+          ? `<span class="status-badge active" style="background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 9999px; font-weight: 600; font-size: 12px;">● Ativa</span>`
+          : `<span class="status-badge suspended" style="background: #fee2e2; color: #b91c1c; padding: 4px 10px; border-radius: 9999px; font-weight: 600; font-size: 12px;">● Bloqueada</span>`;
+
+      return `
+      <tr>
+        <td>
+          <div style="font-weight: 600; color: #0f172a;">${w.name}</div>
+          <span style="font-size: 12px; color: #64748b;">${w.email}</span>
+        </td>
+        <td>
+          <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${w.reseller_id}</code>
+        </td>
+        <td>
+          <span style="font-weight: 700; color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: 8px; font-size: 14px;">
+            R$ ${w.balance_brl}
+          </span>
+        </td>
+        <td>R$ ${w.total_credited_brl}</td>
+        <td>R$ ${w.total_debited_brl}</td>
+        <td><strong>${w.total_licenses_generated}</strong></td>
+        <td>${statusPill}</td>
+        <td style="text-align: right;">
+          <div class="actions-cell" style="justify-content: flex-end; gap: 6px;">
+            <button class="btn-primary" style="padding: 4px 10px; font-size: 12px; background: #10b981;" onclick="openTopupModal('${w.id}')" title="Adicionar Saldo">
+              <i class="fa-solid fa-plus"></i> Saldo
+            </button>
+            <button class="action-icon-btn" onclick="openAdjustModal('${w.id}', '${w.name}', '${w.balance_brl}')" title="Ajuste Manual">
+              <i class="fa-solid fa-scale-balanced" style="font-size: 13px;"></i>
+            </button>
+            <button class="action-icon-btn ${w.status === 'active' ? 'danger' : ''}" onclick="toggleBlockWallet('${w.id}')" title="${w.status === 'active' ? 'Bloquear Carteira' : 'Desbloquear Carteira'}">
+              <i class="fa-solid ${w.status === 'active' ? 'fa-ban' : 'fa-check'}"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+    })
+    .join('');
+}
+
+async function loadWalletTransactions() {
+  const tbody = document.getElementById('transactions-table-body');
+  if (!tbody) return;
+
+  try {
+    // Busca transações da primeira carteira ou do revendedor principal
+    const targetWallet = walletsData[0];
+    if (!targetWallet) return;
+
+    const res = await fetch(`/api/v1/wallet/transactions?limit=25`, {
+      headers: {
+        Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
+        'x-admin-session': 'true',
+      },
+    });
+
+    const json = await res.json();
+    const list = json.data?.transactions || [];
+
+    if (list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 24px;">Nenhuma movimentação financeira registrada ainda.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = list
+      .map((tx) => {
+        const typeBadge =
+          tx.type === 'credit'
+            ? `<span style="background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;">+ CRÉDITO</span>`
+            : tx.type === 'debit'
+            ? `<span style="background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;">- DÉBITO</span>`
+            : `<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;">⚖ AJUSTE</span>`;
+
+        const amountColor = tx.type === 'credit' ? '#15803d' : tx.type === 'debit' ? '#b91c1c' : '#334155';
+        const sign = tx.type === 'credit' ? '+' : tx.type === 'debit' ? '-' : '';
+
+        return `
+        <tr>
+          <td style="font-size: 12px; color: #64748b;">${formatDateTime(tx.created_at)}</td>
+          <td>${typeBadge}</td>
+          <td style="font-weight: 700; color: ${amountColor}; font-size: 13.5px;">${sign} R$ ${tx.amount_brl}</td>
+          <td style="font-weight: 600; color: #0f172a;">R$ ${tx.balance_after_brl}</td>
+          <td><span style="font-size: 13px; color: #334155;">${tx.description}</span></td>
+          <td><code style="font-size: 11px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${tx.idempotency_key || tx.reference_id || '-'}</code></td>
+          <td><span style="font-size: 12px; color: #64748b;">${tx.created_by}</span></td>
+        </tr>
+      `;
+      })
+      .join('');
+  } catch (err) {
+    console.error('Erro ao carregar transações:', err);
+  }
+}
+
+function populateTopupWalletSelect(wallets) {
+  const select = document.getElementById('topup-wallet-select');
+  if (!select) return;
+
+  select.innerHTML = wallets
+    .map((w) => `<option value="${w.id}">${w.name} (${w.email}) — Saldo atual: R$ ${w.balance_brl}</option>`)
+    .join('');
+}
+
+function openTopupModal(walletId) {
+  populateTopupWalletSelect(walletsData);
+  if (walletId) {
+    const select = document.getElementById('topup-wallet-select');
+    if (select) select.value = walletId;
+  }
+  document.getElementById('modal-topup-wallet').classList.add('active');
+}
+
+async function submitTopupWallet(e) {
+  e.preventDefault();
+  const walletId = document.getElementById('topup-wallet-select').value;
+  const amount = Number(document.getElementById('topup-amount').value);
+  const paymentMethod = document.getElementById('topup-method').value;
+  const externalId = document.getElementById('topup-external-id').value.trim();
+  const notes = document.getElementById('topup-notes').value.trim();
+
+  if (!walletId || isNaN(amount) || amount <= 0) {
+    showToast('Informe um valor de recarga válido', 'error');
+    return;
+  }
+
+  closeModal('modal-topup-wallet');
+  showToast('Processando recarga na carteira...', 'info');
+
+  try {
+    const res = await fetch(`/api/v1/admin/wallets/${walletId}/credit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
+        'x-admin-session': 'true',
+      },
+      body: JSON.stringify({ amount, paymentMethod, externalId, notes }),
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      showToast(`Recarga de R$ ${amount.toFixed(2)} creditada com sucesso! Novo saldo: R$ ${json.data.new_balance_brl}`, 'success');
+      loadWallets();
+    } else {
+      showToast('Erro: ' + (json.error?.message || 'Falha ao creditar saldo'), 'error');
+    }
+  } catch (err) {
+    showToast('Erro de rede ao adicionar saldo', 'error');
+  }
+}
+
+function openAdjustModal(walletId, walletName, currentBalance) {
+  document.getElementById('adjust-wallet-id').value = walletId;
+  document.getElementById('adjust-wallet-name').value = `${walletName} (Saldo Atual: R$ ${currentBalance})`;
+  document.getElementById('adjust-new-balance').value = currentBalance;
+  document.getElementById('adjust-reason').value = '';
+  document.getElementById('modal-adjust-wallet').classList.add('active');
+}
+
+async function submitAdjustWallet(e) {
+  e.preventDefault();
+  const walletId = document.getElementById('adjust-wallet-id').value;
+  const newBalance = Number(document.getElementById('adjust-new-balance').value);
+  const reason = document.getElementById('adjust-reason').value.trim();
+
+  if (isNaN(newBalance) || newBalance < 0 || !reason) {
+    showToast('Preencha o novo saldo e o motivo do ajuste', 'error');
+    return;
+  }
+
+  closeModal('modal-adjust-wallet');
+  showToast('Aplicando ajuste financeiro...', 'info');
+
+  try {
+    const res = await fetch(`/api/v1/admin/wallets/${walletId}/adjust`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
+        'x-admin-session': 'true',
+      },
+      body: JSON.stringify({ newBalance, reason }),
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      showToast(`Saldo ajustado para R$ ${json.data.adjusted_balance_brl} com sucesso!`, 'success');
+      loadWallets();
+    } else {
+      showToast('Erro: ' + (json.error?.message || 'Falha ao ajustar saldo'), 'error');
+    }
+  } catch (err) {
+    showToast('Erro de rede ao ajustar saldo', 'error');
+  }
+}
+
+async function toggleBlockWallet(walletId) {
+  if (!confirm('Deseja realmente alterar o status de bloqueio desta carteira?')) return;
+
+  try {
+    const res = await fetch(`/api/v1/admin/wallets/${walletId}/toggle-block`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
+        'x-admin-session': 'true',
+      },
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      showToast(json.message, 'success');
+      loadWallets();
+    }
+  } catch (err) {
+    showToast('Erro ao alterar status da carteira', 'error');
+  }
+}
+
