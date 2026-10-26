@@ -205,6 +205,24 @@ licensesRouter.get(
 );
 
 /**
+ * @route GET /api/v1/licenses/pricing
+ * @desc Preço da emissão da licença (R$ 15,00)
+ */
+licensesRouter.get('/pricing', (req: Request, res: Response): void => {
+  res.status(200).json({
+    success: true,
+    data: {
+      price_per_license_brl: 15.00,
+      price_cents: 1500,
+      currency: 'BRL',
+      extension_id: req.query.extensionId ? String(req.query.extensionId) : 'all',
+      description: 'Preço fixo de R$ 15,00 por emissão de licença debitado automaticamente da carteira',
+    },
+    message: 'Preço consultado com sucesso',
+  });
+});
+
+/**
  * @route GET /api/v1/licenses/:id
  * @desc Detalhes de uma licença específica
  */
