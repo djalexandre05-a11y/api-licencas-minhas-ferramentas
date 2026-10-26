@@ -141,45 +141,60 @@ licensesRouter.post(
 licensesRouter.get(
   '/',
   requireApiKey('read'),
-  (req: Request, res: Response): void => {
-    const { q, status, extensionId, page = 1, limit = 50 } = req.query;
+  async (req: Request, res: Response): Promise<void> => {
+    const { q, status, extensionId, page = 1, limit = 100 } = req.query;
 
-    let sql = 'SELECT * FROM licenses WHERE 1=1';
-    const params: any[] = [];
+    let rows = db.prepare('SELECT * FROM licenses WHERE 1=1 ORDER BY created_at DESC').all() as any[];
 
+    // Se o banco local tiver poucos registros ou estiver vazio (ex: Vercel serverless), busca do Supabase oficial
+    if (rows.length === 0) {
+      try {
+        const supaRows = await SupabaseService.listLicenses();
+        if (supaRows && supaRows.length > 0) {
+          rows = supaRows;
+          // Popula cache local
+          for (const lic of supaRows) {
+            try {
+              db.prepare(`
+                INSERT OR IGNORE INTO licenses (id, license_key, client_name, client_email, extension_id, status, expires_at, created_at, max_activations, current_activations)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+              `).run(lic.id, lic.license_key, lic.client_name, lic.client_email, lic.extension_id, lic.status, lic.expires_at, lic.created_at, lic.max_activations || 3);
+            } catch (_) {}
+          }
+        }
+      } catch (e) {
+        console.error('[Supabase List Error]:', e);
+      }
+    }
+
+    // Filtragem em memória caso venha do Supabase ou banco
+    let filtered = rows;
     if (q) {
-      sql += ' AND (license_key LIKE ? OR client_name LIKE ? OR client_email LIKE ?)';
-      const term = `%${q}%`;
-      params.push(term, term, term);
+      const term = String(q).toLowerCase();
+      filtered = filtered.filter(
+        (r) =>
+          (r.license_key && r.license_key.toLowerCase().includes(term)) ||
+          (r.client_name && r.client_name.toLowerCase().includes(term)) ||
+          (r.client_email && r.client_email.toLowerCase().includes(term))
+      );
     }
-
     if (status && status !== 'all') {
-      sql += ' AND status = ?';
-      params.push(status);
+      filtered = filtered.filter((r) => r.status === status);
     }
-
     if (extensionId) {
-      sql += ' AND extension_id = ?';
-      params.push(extensionId);
+      filtered = filtered.filter((r) => String(r.extension_id).toLowerCase() === String(extensionId).toLowerCase());
     }
 
-    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
     const parsedLimit = Math.min(100, Math.max(1, Number(limit)));
     const offset = (Math.max(1, Number(page)) - 1) * parsedLimit;
-    params.push(parsedLimit, offset);
-
-    const rows = db.prepare(sql).all(...params);
-
-    // Total para paginação
-    const countSql = 'SELECT COUNT(*) as total FROM licenses';
-    const countResult = db.prepare(countSql).get() as any;
+    const paginated = filtered.slice(offset, offset + parsedLimit);
 
     res.status(200).json({
       success: true,
       data: {
-        licenses: rows,
+        licenses: paginated,
         pagination: {
-          total: countResult.total,
+          total: filtered.length,
           page: Number(page),
           limit: parsedLimit,
         },
@@ -196,9 +211,24 @@ licensesRouter.get(
 licensesRouter.get(
   '/:id',
   requireApiKey('read'),
-  (req: Request, res: Response): void => {
+  async (req: Request, res: Response): Promise<void> => {
     const idParam = String(req.params.id);
-    const lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(idParam, idParam) as any;
+    let lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(idParam, idParam) as any;
+
+    if (!lic) {
+      const supaCheck = await SupabaseService.verifyLicense(idParam);
+      if (supaCheck.valid && supaCheck.license) {
+        lic = {
+          id: supaCheck.license.id,
+          license_key: supaCheck.license.license_key,
+          client_name: supaCheck.license.customer_name,
+          client_email: supaCheck.license.customer_email || supaCheck.license.email,
+          extension_id: supaCheck.license.extension_id,
+          status: supaCheck.license.status,
+          expires_at: supaCheck.license.expires_at,
+        };
+      }
+    }
 
     if (!lic) {
       res.status(404).json({
@@ -218,7 +248,7 @@ licensesRouter.get(
 
 /**
  * @route POST /api/v1/licenses
- * @desc Criação de nova licença
+ * @desc Criação de nova licença integrada 100% com o Supabase oficial
  * @access Requer permissão 'write' ou 'licenses:manage'
  */
 licensesRouter.post(
@@ -238,27 +268,29 @@ licensesRouter.post(
       return;
     }
 
-    // Verificar se a extensão existe (case-insensitive para tolerar 'youtube', 'YouTube', etc)
-    const ext = db.prepare('SELECT * FROM extensions WHERE id = ? COLLATE NOCASE OR name = ? COLLATE NOCASE').get(extensionId, extensionId) as any;
+    const cleanExt = String(extensionId).trim().toLowerCase();
+    const resolvedExtUuid = SupabaseService.resolveExtensionUuid(cleanExt);
+
+    // Garante que a extensão exista no banco local
+    let ext = db.prepare('SELECT * FROM extensions WHERE id = ? COLLATE NOCASE OR name = ? COLLATE NOCASE').get(cleanExt, cleanExt) as any;
     if (!ext) {
-      res.status(404).json({
-        success: false,
-        error: { code: 'EXTENSION_NOT_FOUND', message: `Extensão '${extensionId}' não cadastrada` },
-      });
-      return;
+      try {
+        db.prepare('INSERT OR IGNORE INTO extensions (id, name, version) VALUES (?, ?, ?)').run(resolvedExtUuid, cleanExt, '1.0');
+      } catch (_) {}
     }
-    const resolvedExtensionId = ext.id;
 
     // Obter ou criar cliente
     let client = db.prepare('SELECT * FROM clients WHERE email = ?').get(clientEmail) as any;
     if (!client) {
       const clientId = `cli_${crypto.randomUUID()}`;
-      db.prepare('INSERT INTO clients (id, name, email, created_at) VALUES (?, ?, ?, ?)').run(
-        clientId,
-        clientName,
-        clientEmail,
-        new Date().toISOString()
-      );
+      try {
+        db.prepare('INSERT INTO clients (id, name, email, created_at) VALUES (?, ?, ?, ?)').run(
+          clientId,
+          clientName,
+          clientEmail,
+          new Date().toISOString()
+        );
+      } catch (_) {}
       client = { id: clientId, name: clientName, email: clientEmail };
     }
 
@@ -273,14 +305,14 @@ licensesRouter.post(
         INSERT INTO licenses (
           id, license_key, client_id, client_name, client_email, extension_id,
           status, expires_at, max_activations, current_activations, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 1, 0, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 3, 0, ?, ?)
       `).run(
         licenseId,
         licenseKey,
         client.id,
         client.name,
         client.email,
-        resolvedExtensionId,
+        cleanExt,
         expiresAt,
         now.toISOString(),
         now.toISOString()
@@ -288,16 +320,16 @@ licensesRouter.post(
 
       const createdLicense = db.prepare('SELECT * FROM licenses WHERE id = ?').get(licenseId);
 
-      // Sincronização em tempo real com o Supabase oficial (onde as extensões e C# validam)
+      // Sincronização em tempo real com o Supabase oficial (onde as extensões e softwares validam)
       try {
         await SupabaseService.createLicense({
           license_key: licenseKey,
-          extension_id: resolvedExtensionId,
+          extension_id: resolvedExtUuid,
           customer_name: client.name,
           customer_email: client.email,
           status: 'active',
           expires_at: expiresAt,
-          max_devices: 3
+          max_devices: 3,
         });
       } catch (e) {
         console.error('[Supabase Create Sync Error]:', e);
@@ -308,7 +340,15 @@ licensesRouter.post(
 
       res.status(201).json({
         success: true,
-        data: createdLicense,
+        data: createdLicense || {
+          id: licenseId,
+          license_key: licenseKey,
+          client_name: client.name,
+          client_email: client.email,
+          extension_id: cleanExt,
+          status: 'active',
+          expires_at: expiresAt,
+        },
         message: 'Licença criada com sucesso',
       });
     } catch (err: any) {
@@ -329,28 +369,29 @@ licensesRouter.post(
 
 /**
  * @route POST /api/v1/licenses/:id/suspend
- * @desc Suspender licença
+ * @desc Suspender licença (bloqueia no banco local e no Supabase)
  */
 licensesRouter.post(
   '/:id/suspend',
   requireApiKey('write'),
   async (req: Request, res: Response): Promise<void> => {
     const licId = String(req.params.id);
-    const lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(licId, licId) as any;
-    if (!lic) {
-      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Licença não encontrada' } });
-      return;
+    let lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(licId, licId) as any;
+    const targetKey = lic ? lic.license_key : licId;
+
+    if (lic) {
+      const now = new Date().toISOString();
+      db.prepare("UPDATE licenses SET status = 'suspended', updated_at = ? WHERE id = ? OR license_key = ?").run(now, lic.id, lic.license_key);
     }
 
-    const now = new Date().toISOString();
-    db.prepare("UPDATE licenses SET status = 'suspended', updated_at = ? WHERE id = ? OR license_key = ?").run(now, lic.id, lic.license_key);
-    const updated = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(lic.id, lic.license_key);
-
-    // Sincroniza suspensão no Supabase aguardando conclusão
+    // Sincroniza suspensão no Supabase oficial aguardando retorno
     try {
-      await SupabaseService.updateLicenseStatus(lic.license_key, 'suspended');
-    } catch (e) {}
+      await SupabaseService.updateLicenseStatus(targetKey, 'suspended');
+    } catch (e) {
+      console.error('[Supabase Suspend Error]:', e);
+    }
 
+    const updated = lic ? db.prepare('SELECT * FROM licenses WHERE id = ?').get(lic.id) : { license_key: targetKey, status: 'suspended' };
     WebhookService.trigger('license.suspended', updated).catch(() => {});
 
     res.status(200).json({
@@ -363,28 +404,29 @@ licensesRouter.post(
 
 /**
  * @route POST /api/v1/licenses/:id/activate
- * @desc Ativar ou reativar licença
+ * @desc Ativar ou reativar licença (ativa no banco local e no Supabase)
  */
 licensesRouter.post(
   '/:id/activate',
   requireApiKey('write'),
   async (req: Request, res: Response): Promise<void> => {
     const licId = String(req.params.id);
-    const lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(licId, licId) as any;
-    if (!lic) {
-      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Licença não encontrada' } });
-      return;
+    let lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(licId, licId) as any;
+    const targetKey = lic ? lic.license_key : licId;
+
+    if (lic) {
+      const now = new Date().toISOString();
+      db.prepare("UPDATE licenses SET status = 'active', updated_at = ? WHERE id = ? OR license_key = ?").run(now, lic.id, lic.license_key);
     }
 
-    const now = new Date().toISOString();
-    db.prepare("UPDATE licenses SET status = 'active', updated_at = ? WHERE id = ? OR license_key = ?").run(now, lic.id, lic.license_key);
-    const updated = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(lic.id, lic.license_key);
-
-    // Sincroniza ativação no Supabase aguardando conclusão
+    // Sincroniza ativação no Supabase oficial aguardando retorno
     try {
-      await SupabaseService.updateLicenseStatus(lic.license_key, 'active');
-    } catch (e) {}
+      await SupabaseService.updateLicenseStatus(targetKey, 'active');
+    } catch (e) {
+      console.error('[Supabase Activate Error]:', e);
+    }
 
+    const updated = lic ? db.prepare('SELECT * FROM licenses WHERE id = ?').get(lic.id) : { license_key: targetKey, status: 'active' };
     WebhookService.trigger('license.activated', updated).catch(() => {});
 
     res.status(200).json({
@@ -397,29 +439,30 @@ licensesRouter.post(
 
 /**
  * @route DELETE /api/v1/licenses/:id
- * @desc Excluir licença
+ * @desc Excluir licença (remove do banco local e do Supabase oficial)
  */
 licensesRouter.delete(
   '/:id',
   requireApiKey('write'),
   async (req: Request, res: Response): Promise<void> => {
     const licId = String(req.params.id);
-    const lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(licId, licId) as any;
-    if (!lic) {
-      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Licença não encontrada' } });
-      return;
+    let lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(licId, licId) as any;
+    const targetKey = lic ? lic.license_key : licId;
+
+    if (lic) {
+      db.prepare('DELETE FROM licenses WHERE id = ? OR license_key = ?').run(lic.id, lic.license_key);
     }
 
-    db.prepare('DELETE FROM licenses WHERE id = ? OR license_key = ?').run(lic.id, lic.license_key);
-
-    // Exclui também do Supabase aguardando conclusão
+    // Exclui também do Supabase oficial aguardando retorno
     try {
-      await SupabaseService.deleteLicense(lic.license_key);
-    } catch (e) {}
+      await SupabaseService.deleteLicense(targetKey);
+    } catch (e) {
+      console.error('[Supabase Delete Error]:', e);
+    }
 
     res.status(200).json({
       success: true,
-      data: { id: lic.id, license_key: lic.license_key },
+      data: { id: lic?.id || licId, license_key: targetKey },
       message: 'Licença excluída com sucesso',
     });
   }

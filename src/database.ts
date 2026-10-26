@@ -205,28 +205,38 @@ function seedData() {
     }
   }
 
-  // Todas as 20 ferramentas reais mostradas nos prints do usuário
+  // Todas as 30 ferramentas cadastradas no ecossistema e no Supabase
   const extensions = [
+    { id: 'ultrabot', name: 'ultrabot', version: 'v1.0', description: 'UltraBot de atendimento C# e inteligência' },
+    { id: 'omnius ai', name: 'Omnius AI', version: 'v1.0', description: 'Omnius AI Intelligence' },
+    { id: 'olx', name: 'OLX', version: 'v1.0', description: 'Extrator e automação OLX' },
+    { id: 'lead wave', name: 'Lead Wave', version: 'v1.0', description: 'Captação e funil de leads' },
+    { id: 'sms pro', name: 'sms pro', version: 'v1.0', description: 'Disparo de SMS em massa' },
+    { id: 'bulk button pro', name: 'Bulk Button Pro', version: 'v1.0', description: 'Botões em massa WhatsApp' },
+    { id: 'business sender', name: 'Business Sender', version: 'v1.0', description: 'Disparador WhatsApp Business' },
+    { id: 'social data extractor', name: 'Social Data Extractor', version: 'v1.0', description: 'Extrator de dados de redes sociais' },
+    { id: 'lead google pro', name: 'Lead Google Pro', version: 'v1.0', description: 'Extrator de leads do Google Maps e Busca' },
+    { id: 'wa sender', name: 'Wa Sender', version: 'v1.0', description: 'WhatsApp Sender profissional' },
+    { id: 'linkedin', name: 'LinkedIn', version: 'v1.0', description: 'Extrator e automação para LinkedIn' },
+    { id: 'crm', name: 'crm', version: 'v1.0', description: 'Sistema de gestão CRM' },
+    { id: 'top', name: 'top', version: 'v1.0', description: 'Ferramenta Top de engajamento' },
+    { id: 'botmaster', name: 'botmaster', version: 'v1.0', description: 'BotMaster automação' },
+    { id: 'sender', name: 'sender', version: 'v1.0', description: 'Envio massivo multicanal' },
     { id: 'dszap', name: 'dszap', version: 'v1.0', description: 'Extensão de automação WhatsApp' },
-    { id: 'email', name: 'email', version: 'v1.0', description: 'Disparador e extrator de Email' },
-    { id: 'imagempro', name: 'imagempro', version: 'v1.0', description: 'Processamento e otimização de imagens' },
-    { id: 'Lead Google Pro', name: 'Lead Google Pro', version: 'v1.0', description: 'Extrator de leads do Google Maps e Busca' },
-    { id: 'Lead Wave', name: 'Lead Wave', version: 'v1.0', description: 'Captação e funil de leads' },
-    { id: 'LinkedIn', name: 'LinkedIn', version: 'v1.0', description: 'Extrator e automação para LinkedIn' },
     { id: 'lion', name: 'lion', version: 'v5.4', description: 'Módulo avançado Lion de disparos' },
+    { id: 'whatsup', name: 'whatsup', version: 'v1.0', description: 'Monitoramento e extração de contatos WhatsApp' },
+    { id: 'cnpj', name: 'cnpj', version: 'v1.0', description: 'Consulta e enriquecimento de CNPJ' },
+    { id: 'pro', name: 'pro', version: 'v1.0', description: 'Módulo Pro de automações' },
+    { id: 'email', name: 'email', version: 'v1.0', description: 'Disparador e extrator de Email' },
+    { id: 'planeja', name: 'planeja', version: 'v1.0', description: 'Planejador de envios' },
     { id: 'lovable', name: 'lovable', version: 'v1.0', description: 'Integração e automação Lovable' },
+    { id: 'smstop', name: 'smstop', version: 'v1.0', description: 'Gateway e automação SMS Top' },
     { id: 'maturador', name: 'maturador', version: 'v1.0', description: 'Maturador de chips WhatsApp' },
     { id: 'robopro', name: 'robopro', version: 'v1.0', description: 'Robô de automação inteligente' },
-    { id: 'sender', name: 'sender', version: 'v1.0', description: 'Envio massivo multicanal' },
-    { id: 'sms pro', name: 'sms pro', version: 'v1.0', description: 'Disparo de SMS em massa' },
-    { id: 'smstop', name: 'smstop', version: 'v1.0', description: 'Gateway e automação SMS Top' },
-    { id: 'Social Data Extractor', name: 'Social Data Extractor', version: 'v1.0', description: 'Extrator de dados de redes sociais' },
-    { id: 'tele', name: 'tele', version: 'v1.0', description: 'Automação e robô Telegram' },
-    { id: 'top', name: 'top', version: 'v1.0', description: 'Ferramenta Top de engajamento' },
-    { id: 'ultrabot', name: 'ultrabot', version: 'v1.0', description: 'UltraBot de atendimento e inteligência' },
-    { id: 'Wa Sender', name: 'Wa Sender', version: 'v1.0', description: 'WhatsApp Sender profissional' },
-    { id: 'whatsup', name: 'whatsup', version: 'v1.0', description: 'Monitoramento e extração de contatos WhatsApp' },
+    { id: 'b2b', name: 'B2B', version: 'v1.0', description: 'Extrator de contatos B2B' },
     { id: 'youtube', name: 'youtube', version: 'v1.0', description: 'Extrator de leads e comentários YouTube' },
+    { id: 'imagempro', name: 'imagempro', version: 'v1.0', description: 'Processamento e otimização de imagens' },
+    { id: 'tele', name: 'tele', version: 'v1.0', description: 'Automação e robô Telegram' },
   ];
 
   for (const ext of extensions) {

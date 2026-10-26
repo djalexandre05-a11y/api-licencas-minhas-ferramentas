@@ -218,10 +218,10 @@ function renderLicenses(list) {
           <div class="actions-cell" style="justify-content: flex-end;">
             ${
               lic.status === 'active'
-                ? `<button class="action-icon-btn" onclick="toggleSuspendLicense('${lic.id}', 'suspend')" title="Suspender Licença"><i class="fa-solid fa-pause"></i></button>`
-                : `<button class="action-icon-btn" onclick="toggleSuspendLicense('${lic.id}', 'activate')" title="Ativar Licença"><i class="fa-solid fa-play" style="color: #10b981;"></i></button>`
+                ? `<button class="action-icon-btn" onclick="toggleSuspendLicense('${lic.license_key}', 'suspend')" title="Suspender Licença"><i class="fa-solid fa-pause"></i></button>`
+                : `<button class="action-icon-btn" onclick="toggleSuspendLicense('${lic.license_key}', 'activate')" title="Ativar Licença"><i class="fa-solid fa-play" style="color: #10b981;"></i></button>`
             }
-            <button class="action-icon-btn danger" onclick="deleteLicense('${lic.id}')" title="Excluir"><i class="fa-regular fa-trash-can"></i></button>
+            <button class="action-icon-btn danger" onclick="deleteLicense('${lic.license_key}')" title="Excluir"><i class="fa-regular fa-trash-can"></i></button>
           </div>
         </td>
       </tr>

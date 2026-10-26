@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../database.js';
 import { ApiKeyService } from '../auth/apiKeyService.js';
 import { WebhookService } from '../services/webhookService.js';
+import { SupabaseService } from '../services/supabaseService.js';
 
 import crypto from 'node:crypto';
 export const adminRouter = Router();
@@ -78,12 +79,29 @@ adminRouter.post('/change-password', (req: Request, res: Response) => {
   res.json({ success: true, message: 'Senha alterada com sucesso! Guarde sua nova senha.' });
 });
 
-// Estatísticas globais do painel
-adminRouter.get('/stats', (req: Request, res: Response) => {
-  const totalLic = (db.prepare('SELECT COUNT(*) as count FROM licenses').get() as any).count;
-  const activeLic = (db.prepare("SELECT COUNT(*) as count FROM licenses WHERE status = 'active'").get() as any).count;
-  const expiredLic = (db.prepare("SELECT COUNT(*) as count FROM licenses WHERE status = 'expired'").get() as any).count;
-  const suspendedLic = (db.prepare("SELECT COUNT(*) as count FROM licenses WHERE status = 'suspended'").get() as any).count;
+// Estatísticas globais do painel sincronizadas com o Supabase oficial
+adminRouter.get('/stats', async (req: Request, res: Response) => {
+  let totalLic = 0;
+  let activeLic = 0;
+  let expiredLic = 0;
+  let suspendedLic = 0;
+
+  try {
+    const supaLicenses = await SupabaseService.listLicenses();
+    if (supaLicenses && supaLicenses.length > 0) {
+      totalLic = supaLicenses.length;
+      activeLic = supaLicenses.filter((l) => l.status === 'active').length;
+      suspendedLic = supaLicenses.filter((l) => l.status === 'suspended').length;
+      expiredLic = supaLicenses.filter((l) => l.status === 'expired').length;
+    }
+  } catch (_) {}
+
+  if (totalLic === 0) {
+    totalLic = (db.prepare('SELECT COUNT(*) as count FROM licenses').get() as any).count;
+    activeLic = (db.prepare("SELECT COUNT(*) as count FROM licenses WHERE status = 'active'").get() as any).count;
+    expiredLic = (db.prepare("SELECT COUNT(*) as count FROM licenses WHERE status = 'expired'").get() as any).count;
+    suspendedLic = (db.prepare("SELECT COUNT(*) as count FROM licenses WHERE status = 'suspended'").get() as any).count;
+  }
 
   const totalReq = (db.prepare('SELECT COUNT(*) as count FROM api_request_logs').get() as any).count;
 
@@ -117,6 +135,20 @@ adminRouter.get('/stats', (req: Request, res: Response) => {
       },
     },
   });
+});
+
+// Listagem de licenças para o painel admin (sincronizada com Supabase)
+adminRouter.get('/licenses', async (req: Request, res: Response) => {
+  try {
+    const supaRows = await SupabaseService.listLicenses();
+    if (supaRows && supaRows.length > 0) {
+      res.json({ success: true, data: supaRows });
+      return;
+    }
+  } catch (_) {}
+
+  const rows = db.prepare('SELECT * FROM licenses ORDER BY created_at DESC').all();
+  res.json({ success: true, data: rows });
 });
 
 // Listagem de chaves de API
