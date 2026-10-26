@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { db } from '../../database.js';
 import { requireApiKey } from '../../auth/authMiddleware.js';
 import { WebhookService } from '../../services/webhookService.js';
+import { SupabaseService } from '../../services/supabaseService.js';
 
 export const licensesRouter = Router();
 
@@ -287,6 +288,17 @@ licensesRouter.post(
 
       const createdLicense = db.prepare('SELECT * FROM licenses WHERE id = ?').get(licenseId);
 
+      // Sincronização em tempo real com o Supabase oficial (onde as extensões e C# validam)
+      SupabaseService.createLicense({
+        license_key: licenseKey,
+        extension_id: resolvedExtensionId,
+        customer_name: client.name,
+        customer_email: client.email,
+        status: 'active',
+        expires_at: expiresAt,
+        max_devices: 3
+      }).catch(err => console.error('[Supabase Create Sync Error]:', err));
+
       // Webhook assíncrono
       WebhookService.trigger('license.created', createdLicense).catch(() => {});
 
@@ -330,6 +342,9 @@ licensesRouter.post(
     db.prepare("UPDATE licenses SET status = 'suspended', updated_at = ? WHERE id = ? OR license_key = ?").run(now, lic.id, lic.license_key);
     const updated = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(lic.id, lic.license_key);
 
+    // Sincroniza suspensão no Supabase
+    SupabaseService.updateLicenseStatus(lic.license_key, 'suspended').catch(() => {});
+
     WebhookService.trigger('license.suspended', updated).catch(() => {});
 
     res.status(200).json({
@@ -359,6 +374,9 @@ licensesRouter.post(
     db.prepare("UPDATE licenses SET status = 'active', updated_at = ? WHERE id = ? OR license_key = ?").run(now, lic.id, lic.license_key);
     const updated = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(lic.id, lic.license_key);
 
+    // Sincroniza ativação no Supabase
+    SupabaseService.updateLicenseStatus(lic.license_key, 'active').catch(() => {});
+
     WebhookService.trigger('license.activated', updated).catch(() => {});
 
     res.status(200).json({
@@ -378,16 +396,20 @@ licensesRouter.delete(
   requireApiKey('write'),
   (req: Request, res: Response): void => {
     const licId = String(req.params.id);
-    const lic = db.prepare('SELECT * FROM licenses WHERE id = ?').get(licId);
+    const lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(licId, licId) as any;
     if (!lic) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Licença não encontrada' } });
       return;
     }
 
-    db.prepare('DELETE FROM licenses WHERE id = ?').run(licId);
+    db.prepare('DELETE FROM licenses WHERE id = ? OR license_key = ?').run(lic.id, lic.license_key);
+
+    // Exclui também do Supabase
+    SupabaseService.deleteLicense(lic.license_key).catch(() => {});
+
     res.status(200).json({
       success: true,
-      data: { id: licId },
+      data: { id: lic.id, license_key: lic.license_key },
       message: 'Licença excluída com sucesso',
     });
   }
