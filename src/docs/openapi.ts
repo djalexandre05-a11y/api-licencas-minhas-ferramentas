@@ -1,7 +1,7 @@
 export const openApiSpec = {
   openapi: '3.1.0',
   info: {
-    title: 'ZapFlow Universal License & Integration REST API',
+    title: 'Autobot Telegram — Universal License & Integration REST API',
     version: '1.0.0',
     description: `API REST profissional para gerenciamento de licenças de software, extensões (dszap, tele, sender, youtube, etc.), autenticação segura por API Keys criptografadas, webhooks automáticos e rate limiting integrado.
 
@@ -12,8 +12,8 @@ Authorization: Bearer sk_live_...
 \`\`\`
 `,
     contact: {
-      name: 'Suporte ZapFlow API',
-      email: 'suporte@zapflow.com.br',
+      name: 'Suporte Autobot Telegram',
+      email: 'autobotdigital515@gmail.com',
     },
   },
   servers: [

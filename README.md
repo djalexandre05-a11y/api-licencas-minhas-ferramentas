@@ -1,4 +1,4 @@
-# 🚀 ZapFlow Universal License & REST API Platform
+# 🚀 Autobot Telegram — Universal License & REST API Platform
 
 Sistema completo e profissional de API REST com geração e gerenciamento de API Keys criptografadas, autenticação segura por Bearer Token, controle de acesso/rate limit por minuto, documentação automática OpenAPI 3.1 + Swagger UI, webhooks assinados com HMAC SHA-256 e Painel Administrativo de alta performance.
 

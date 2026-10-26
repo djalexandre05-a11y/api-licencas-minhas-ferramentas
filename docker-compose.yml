@@ -1,7 +1,7 @@
 services:
   api:
     build: .
-    container_name: zapflow-license-api
+    container_name: autobot-telegram-api
     restart: always
     ports:
       - "3000:3000"

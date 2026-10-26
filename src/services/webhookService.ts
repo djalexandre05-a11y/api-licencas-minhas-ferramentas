@@ -74,7 +74,7 @@ export class WebhookService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'ZapFlow-Webhook-Engine/1.0',
+          'User-Agent': 'Autobot-Telegram-Webhook-Engine/1.0',
           'X-Webhook-Id': eventId,
           'X-Webhook-Timestamp': timestamp,
           'X-Webhook-Signature': `t=${timestamp},v1=${signature}`,
