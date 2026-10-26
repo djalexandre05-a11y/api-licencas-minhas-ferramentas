@@ -142,9 +142,7 @@ async function loadStats() {
 // 2. CARREGAR E RENDERIZAR LICENÇAS
 async function loadLicenses() {
   try {
-    loadStats();
-
-    const licRes = await fetch('/api/v1/licenses?limit=100', {
+    const licRes = await fetch('/api/v1/licenses?limit=1000', {
       headers: {
         Authorization: 'Bearer ' + (localStorage.getItem('admin_token') || 'sess_master'),
         'x-admin-session': 'true',
@@ -154,8 +152,10 @@ async function loadLicenses() {
     let rows = [];
     if (licRes && licRes.ok) {
       const json = await licRes.json();
-      rows = json.data.licenses || [];
-    } else {
+      rows = json.data?.licenses || [];
+    }
+    
+    if (rows.length === 0) {
       const fallback = await fetch('/admin/api/licenses').catch(() => null);
       if (fallback) {
         const json = await fallback.json();
@@ -165,6 +165,8 @@ async function loadLicenses() {
 
     licensesData = rows;
     renderLicenses(licensesData);
+    updateCardCounts();
+    loadStats();
   } catch (err) {
     console.error('Erro ao carregar licenças:', err);
   }

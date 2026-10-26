@@ -142,28 +142,27 @@ licensesRouter.get(
   '/',
   requireApiKey('read'),
   async (req: Request, res: Response): Promise<void> => {
-    const { q, status, extensionId, page = 1, limit = 100 } = req.query;
+    const { q, status, extensionId, page = 1, limit = 500 } = req.query;
 
-    let rows = db.prepare('SELECT * FROM licenses WHERE 1=1 ORDER BY created_at DESC').all() as any[];
+    // Busca SEMPRE todas as licenças do banco oficial Supabase
+    let rows: any[] = [];
+    try {
+      rows = await SupabaseService.listLicenses();
+    } catch (e) {
+      console.error('[Supabase List Error]:', e);
+    }
 
-    // Se o banco local tiver poucos registros ou estiver vazio (ex: Vercel serverless), busca do Supabase oficial
-    if (rows.length === 0) {
-      try {
-        const supaRows = await SupabaseService.listLicenses();
-        if (supaRows && supaRows.length > 0) {
-          rows = supaRows;
-          // Popula cache local
-          for (const lic of supaRows) {
-            try {
-              db.prepare(`
-                INSERT OR IGNORE INTO licenses (id, license_key, client_name, client_email, extension_id, status, expires_at, created_at, max_activations, current_activations)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-              `).run(lic.id, lic.license_key, lic.client_name, lic.client_email, lic.extension_id, lic.status, lic.expires_at, lic.created_at, lic.max_activations || 3);
-            } catch (_) {}
-          }
-        }
-      } catch (e) {
-        console.error('[Supabase List Error]:', e);
+    if (!rows || rows.length === 0) {
+      rows = db.prepare('SELECT * FROM licenses WHERE 1=1 ORDER BY created_at DESC').all() as any[];
+    } else {
+      // Popula / atualiza cache local de forma silenciosa
+      for (const lic of rows) {
+        try {
+          db.prepare(`
+            INSERT OR IGNORE INTO licenses (id, license_key, client_name, client_email, extension_id, status, expires_at, created_at, max_activations, current_activations)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+          `).run(lic.id, lic.license_key, lic.client_name, lic.client_email, lic.extension_id, lic.status, lic.expires_at, lic.created_at, lic.max_activations || 3);
+        } catch (_) {}
       }
     }
 

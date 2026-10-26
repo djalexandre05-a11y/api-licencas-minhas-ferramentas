@@ -82,7 +82,7 @@ export class SupabaseService {
    */
   static async listLicenses(): Promise<any[]> {
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/licenses?select=*,extensions:extension_id(name)&order=created_at.desc`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/licenses?select=*,extensions:extension_id(name)&order=created_at.desc&limit=1000`, {
         headers: {
           apikey: SUPABASE_KEY,
           Authorization: `Bearer ${SUPABASE_KEY}`,
