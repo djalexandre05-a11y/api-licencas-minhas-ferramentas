@@ -139,18 +139,32 @@ export function initDatabase() {
     );
   `);
 
-  // 10. Logs de Auditoria Administrativa
+  // 11. Usuários Administradores para Login do Painel
   db.exec(`
-    CREATE TABLE IF NOT EXISTS api_audit_logs (
+    CREATE TABLE IF NOT EXISTS admin_users (
       id TEXT PRIMARY KEY,
-      action TEXT NOT NULL,
-      entity_type TEXT NOT NULL,
-      entity_id TEXT,
-      details TEXT,
-      ip_address TEXT,
-      created_at TEXT NOT NULL
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     );
   `);
+
+  // Criar administrador padrão se não existir (senha: admin123456)
+  const defaultAdmin = db.prepare('SELECT id FROM admin_users LIMIT 1').get();
+  if (!defaultAdmin) {
+    const defaultPassHash = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'; // sha256 de "admin123456"
+    db.prepare(`
+      INSERT INTO admin_users (id, email, password_hash, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      'admin_1',
+      'autobotdigital515@gmail.com',
+      defaultPassHash,
+      new Date().toISOString(),
+      new Date().toISOString()
+    );
+  }
 
   seedData();
 }

@@ -3,7 +3,71 @@ import { db } from '../database.js';
 import { ApiKeyService } from '../auth/apiKeyService.js';
 import { WebhookService } from '../services/webhookService.js';
 
+import crypto from 'node:crypto';
 export const adminRouter = Router();
+
+function hashPassword(pass: string): string {
+  return crypto.createHash('sha256').update(pass.trim()).digest('hex');
+}
+
+// 🔐 Rota de Login do Administrador
+adminRouter.post('/login', (req: Request, res: Response) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    res.status(400).json({ success: false, error: { message: 'Email e senha são obrigatórios' } });
+    return;
+  }
+
+  const passHash = hashPassword(password);
+  const user = db.prepare('SELECT id, email FROM admin_users WHERE email = ? AND password_hash = ?').get(email.trim(), passHash) as any;
+
+  if (!user) {
+    res.status(401).json({ success: false, error: { message: 'Email ou senha incorretos' } });
+    return;
+  }
+
+  // Gera um token de sessão de 24h
+  const sessionToken = `sess_${crypto.randomBytes(32).toString('hex')}`;
+  res.json({
+    success: true,
+    data: {
+      token: sessionToken,
+      user: { id: user.id, email: user.email },
+    },
+    message: 'Login realizado com sucesso',
+  });
+});
+
+// 🔑 Rota para Alterar Senha do Administrador
+adminRouter.post('/change-password', (req: Request, res: Response) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ success: false, error: { message: 'Informe a senha atual e a nova senha' } });
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    res.status(400).json({ success: false, error: { message: 'A nova senha deve ter no mínimo 6 caracteres' } });
+    return;
+  }
+
+  const curHash = hashPassword(currentPassword);
+  const user = db.prepare('SELECT id FROM admin_users WHERE password_hash = ? LIMIT 1').get(curHash) as any;
+
+  if (!user) {
+    res.status(401).json({ success: false, error: { message: 'A senha atual informada está incorreta' } });
+    return;
+  }
+
+  const newHash = hashPassword(newPassword);
+  db.prepare('UPDATE admin_users SET password_hash = ?, updated_at = ? WHERE id = ?').run(
+    newHash,
+    new Date().toISOString(),
+    user.id
+  );
+
+  res.json({ success: true, message: 'Senha alterada com sucesso! Guarde sua nova senha.' });
+});
 
 // Estatísticas globais do painel
 adminRouter.get('/stats', (req: Request, res: Response) => {

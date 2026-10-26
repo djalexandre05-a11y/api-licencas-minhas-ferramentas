@@ -1,9 +1,20 @@
+// 🔐 Proteção de Acesso: Redireciona para o login se não estiver autenticado
+if (!localStorage.getItem('admin_token')) {
+  window.location.href = '/login.html';
+}
+
 // Estado da Aplicação
 let currentTab = 'tab-licenses';
 let licensesData = [];
 let extensionsData = [];
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Exibe o email do admin logado
+  const emailLabel = document.getElementById('admin-email-label');
+  if (emailLabel) {
+    emailLabel.innerText = localStorage.getItem('admin_email') || 'ONLINE';
+  }
+
   initTabs();
   loadStats();
   loadLicenses();
@@ -16,6 +27,44 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('license-search-input')?.addEventListener('input', filterLicenses);
   document.getElementById('license-filter-select')?.addEventListener('change', filterLicenses);
 });
+
+function logoutAdmin() {
+  if (confirm('Deseja realmente sair do painel?')) {
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_email');
+    window.location.href = '/login.html';
+  }
+}
+
+async function handleChangePassword(e) {
+  e.preventDefault();
+  const curPass = document.getElementById('cur-pass').value;
+  const newPass = document.getElementById('new-pass').value;
+  const confirmPass = document.getElementById('confirm-new-pass').value;
+
+  if (newPass !== confirmPass) {
+    alert('A nova senha e a confirmação não coincidem.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/admin/api/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: curPass, newPassword: newPass }),
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      alert('Senha alterada com sucesso! Guarde sua nova senha.');
+      document.getElementById('change-pass-form')?.reset();
+    } else {
+      alert('Erro: ' + (json.error?.message || 'Falha ao alterar senha'));
+    }
+  } catch (err) {
+    alert('Erro de conexão ao alterar senha');
+  }
+}
 
 // Navegação entre abas
 function initTabs() {

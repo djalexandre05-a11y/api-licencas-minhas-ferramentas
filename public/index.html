@@ -72,10 +72,10 @@
         <div class="user-avatar">AD</div>
         <div class="user-details">
           <h4>Administrador</h4>
-          <span>ONLINE</span>
+          <span id="admin-email-label" style="font-size: 10px; color: #94a3b8; display: block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ONLINE</span>
         </div>
       </div>
-      <button class="action-icon-btn" title="Desconectar">
+      <button class="action-icon-btn" onclick="logoutAdmin()" title="Desconectar / Sair">
         <i class="fa-solid fa-arrow-right-from-bracket"></i>
       </button>
     </div>
@@ -389,6 +389,25 @@
             </div>
             <button type="submit" class="btn-primary" style="align-self: flex-start;">
               <i class="fa-solid fa-floppy-disk"></i> Salvar Configurações
+            </button>
+        <div class="card" style="max-width: 650px; margin-top: 20px;">
+          <h3>🔐 Alterar Senha de Acesso ao Painel</h3>
+          <p style="font-size: 13px; color: #64748b; margin-top: 4px;">Atualize sua senha de acesso para manter o painel sempre protegido.</p>
+          <form id="change-pass-form" onsubmit="handleChangePassword(event)" style="display: flex; flex-direction: column; gap: 16px; margin-top: 10px;">
+            <div class="form-group">
+              <label>Senha Atual</label>
+              <input type="password" id="cur-pass" class="form-control" required placeholder="Digite sua senha atual">
+            </div>
+            <div class="form-group">
+              <label>Nova Senha (Mínimo 6 caracteres)</label>
+              <input type="password" id="new-pass" class="form-control" required placeholder="Digite sua nova senha segura">
+            </div>
+            <div class="form-group">
+              <label>Confirmar Nova Senha</label>
+              <input type="password" id="confirm-new-pass" class="form-control" required placeholder="Repita a nova senha">
+            </div>
+            <button type="submit" class="btn-primary" style="align-self: flex-start;">
+              <i class="fa-solid fa-key"></i> Atualizar Senha
             </button>
           </form>
         </div>

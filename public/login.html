@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Painel Admin & API REST</title>
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    body {
+      background: #090d16;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    .login-card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 420px;
+      padding: 36px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .login-header {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .login-header h2 {
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0;
+    }
+    .login-header p {
+      color: #64748b;
+      font-size: 13px;
+      margin: 0;
+    }
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .login-form .form-group label {
+      color: #cbd5e1;
+      font-size: 13px;
+    }
+    .login-form .form-control {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #ffffff;
+      padding: 12px 14px;
+    }
+    .login-form .form-control:focus {
+      border-color: #6366f1;
+      background: #0f172a;
+    }
+    .login-btn {
+      background: #4f46e5;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    .login-btn:hover {
+      background: #4338ca;
+    }
+    .alert-error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: none;
+    }
+    .login-footer-info {
+      text-align: center;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-card">
+    <div class="login-header">
+      <div class="logo-icon" style="width: 48px; height: 48px; font-size: 22px;">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <h2>Acesso Administrativo</h2>
+      <p>Gerenciador v3.0 & Sistema de API REST</p>
+    </div>
+
+    <div id="login-error" class="alert-error"></div>
+
+    <form class="login-form" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label>Email de Acesso</label>
+        <input type="email" id="login-email" class="form-control" required placeholder="seu-email@exemplo.com" value="autobotdigital515@gmail.com">
+      </div>
+
+      <div class="form-group">
+        <label>Senha de Segurança</label>
+        <input type="password" id="login-password" class="form-control" required placeholder="••••••••" value="admin123456">
+      </div>
+
+      <button type="submit" id="submit-btn" class="login-btn">
+        <i class="fa-solid fa-lock"></i> Entrar no Painel
+      </button>
+    </form>
+
+    <div class="login-footer-info">
+      🔐 Acesso restrito a administradores autorizados.<br>
+      As chamadas de extensões e bots utilizam autenticação por Bearer Token.
+    </div>
+  </div>
+
+  <script>
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      const errorDiv = document.getElementById('login-error');
+      const btn = document.getElementById('submit-btn');
+
+      errorDiv.style.display = 'none';
+      btn.innerText = 'Verificando...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/admin/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const json = await res.json();
+        if (json.success) {
+          localStorage.setItem('admin_token', json.data.token);
+          localStorage.setItem('admin_email', json.data.user.email);
+          window.location.href = '/';
+        } else {
+          errorDiv.innerText = json.error?.message || 'Email ou senha incorretos';
+          errorDiv.style.display = 'block';
+          btn.innerHTML = '<i class="fa-solid fa-lock"></i> Entrar no Painel';
+          btn.disabled = false;
+        }
+      } catch (err) {
+        errorDiv.innerText = 'Erro ao conectar ao servidor';
+        errorDiv.style.display = 'block';
+        btn.innerHTML = '<i class="fa-solid fa-lock"></i> Entrar no Painel';
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
