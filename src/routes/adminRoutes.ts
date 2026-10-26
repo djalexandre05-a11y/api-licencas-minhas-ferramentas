@@ -81,9 +81,9 @@ adminRouter.post('/change-password', (req: Request, res: Response) => {
 // Estatísticas globais do painel
 adminRouter.get('/stats', (req: Request, res: Response) => {
   const totalLic = (db.prepare('SELECT COUNT(*) as count FROM licenses').get() as any).count;
-  const activeLic = (db.prepare('SELECT COUNT(*) as count FROM licenses WHERE status = "active"').get() as any).count;
-  const expiredLic = (db.prepare('SELECT COUNT(*) as count FROM licenses WHERE status = "expired"').get() as any).count;
-  const suspendedLic = (db.prepare('SELECT COUNT(*) as count FROM licenses WHERE status = "suspended"').get() as any).count;
+  const activeLic = (db.prepare("SELECT COUNT(*) as count FROM licenses WHERE status = 'active'").get() as any).count;
+  const expiredLic = (db.prepare("SELECT COUNT(*) as count FROM licenses WHERE status = 'expired'").get() as any).count;
+  const suspendedLic = (db.prepare("SELECT COUNT(*) as count FROM licenses WHERE status = 'suspended'").get() as any).count;
 
   const totalReq = (db.prepare('SELECT COUNT(*) as count FROM api_request_logs').get() as any).count;
 
@@ -127,25 +127,33 @@ adminRouter.get('/keys', (req: Request, res: Response) => {
 
 // Criar nova chave de API (retorna a chave em texto puro apenas desta vez)
 adminRouter.post('/keys', (req: Request, res: Response) => {
-  const { name, clientName, permissions, expiresInDays, rateLimitPerMin } = req.body;
-  if (!name || !clientName) {
-    res.status(422).json({ success: false, error: { message: 'name e clientName são obrigatórios' } });
-    return;
+  try {
+    const { name, clientName, permissions, expiresInDays, rateLimitPerMin } = req.body;
+    if (!name || !clientName) {
+      res.status(422).json({ success: false, error: { message: 'name e clientName são obrigatórios' } });
+      return;
+    }
+
+    const result = ApiKeyService.generateApiKey({
+      name: String(name).trim(),
+      clientName: String(clientName).trim(),
+      permissions: Array.isArray(permissions) ? permissions : ['read', 'licenses:verify'],
+      expiresInDays: expiresInDays ? Number(expiresInDays) : null,
+      rateLimitPerMin: rateLimitPerMin ? Number(rateLimitPerMin) : 100,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: result,
+      message: 'Chave de API gerada com sucesso! Guarde a chave secreta agora, ela não será exibida novamente.',
+    });
+  } catch (err: any) {
+    console.error('[GenerateKey Error]:', err);
+    res.status(500).json({
+      success: false,
+      error: { message: err.message || 'Erro ao gerar API Key no banco' },
+    });
   }
-
-  const result = ApiKeyService.generateApiKey({
-    name,
-    clientName,
-    permissions,
-    expiresInDays: expiresInDays ? Number(expiresInDays) : null,
-    rateLimitPerMin: rateLimitPerMin ? Number(rateLimitPerMin) : 100,
-  });
-
-  res.status(201).json({
-    success: true,
-    data: result,
-    message: 'Chave de API gerada com sucesso! Guarde a chave secreta agora, ela não será exibida novamente.',
-  });
 });
 
 // Revogar chave de API

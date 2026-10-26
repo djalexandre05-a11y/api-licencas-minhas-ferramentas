@@ -141,6 +141,20 @@ export function initDatabase() {
     );
   `);
 
+  // 10. Logs de Auditoria
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS api_audit_logs (
+      id TEXT PRIMARY KEY,
+      action TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      details TEXT,
+      ip_address TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_created ON api_audit_logs(created_at);
+  `);
+
   // 11. Usuários Administradores para Login do Painel
   db.exec(`
     CREATE TABLE IF NOT EXISTS admin_users (

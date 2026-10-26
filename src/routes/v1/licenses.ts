@@ -237,8 +237,8 @@ licensesRouter.post(
       return;
     }
 
-    // Verificar se a extensão existe
-    const ext = db.prepare('SELECT * FROM extensions WHERE id = ?').get(extensionId);
+    // Verificar se a extensão existe (case-insensitive para tolerar 'youtube', 'YouTube', etc)
+    const ext = db.prepare('SELECT * FROM extensions WHERE id = ? COLLATE NOCASE OR name = ? COLLATE NOCASE').get(extensionId, extensionId) as any;
     if (!ext) {
       res.status(404).json({
         success: false,
@@ -246,6 +246,7 @@ licensesRouter.post(
       });
       return;
     }
+    const resolvedExtensionId = ext.id;
 
     // Obter ou criar cliente
     let client = db.prepare('SELECT * FROM clients WHERE email = ?').get(clientEmail) as any;
@@ -278,7 +279,7 @@ licensesRouter.post(
         client.id,
         client.name,
         client.email,
-        extensionId,
+        resolvedExtensionId,
         expiresAt,
         now.toISOString(),
         now.toISOString()
@@ -319,15 +320,15 @@ licensesRouter.post(
   requireApiKey('write'),
   async (req: Request, res: Response): Promise<void> => {
     const licId = String(req.params.id);
-    const lic = db.prepare('SELECT * FROM licenses WHERE id = ?').get(licId) as any;
+    const lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(licId, licId) as any;
     if (!lic) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Licença não encontrada' } });
       return;
     }
 
     const now = new Date().toISOString();
-    db.prepare('UPDATE licenses SET status = "suspended", updated_at = ? WHERE id = ?').run(now, lic.id);
-    const updated = db.prepare('SELECT * FROM licenses WHERE id = ?').get(lic.id);
+    db.prepare("UPDATE licenses SET status = 'suspended', updated_at = ? WHERE id = ? OR license_key = ?").run(now, lic.id, lic.license_key);
+    const updated = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(lic.id, lic.license_key);
 
     WebhookService.trigger('license.suspended', updated).catch(() => {});
 
@@ -348,15 +349,15 @@ licensesRouter.post(
   requireApiKey('write'),
   async (req: Request, res: Response): Promise<void> => {
     const licId = String(req.params.id);
-    const lic = db.prepare('SELECT * FROM licenses WHERE id = ?').get(licId) as any;
+    const lic = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(licId, licId) as any;
     if (!lic) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Licença não encontrada' } });
       return;
     }
 
     const now = new Date().toISOString();
-    db.prepare('UPDATE licenses SET status = "active", updated_at = ? WHERE id = ?').run(now, lic.id);
-    const updated = db.prepare('SELECT * FROM licenses WHERE id = ?').get(lic.id);
+    db.prepare("UPDATE licenses SET status = 'active', updated_at = ? WHERE id = ? OR license_key = ?").run(now, lic.id, lic.license_key);
+    const updated = db.prepare('SELECT * FROM licenses WHERE id = ? OR license_key = ?').get(lic.id, lic.license_key);
 
     WebhookService.trigger('license.activated', updated).catch(() => {});
 
