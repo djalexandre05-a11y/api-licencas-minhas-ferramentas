@@ -18,12 +18,16 @@ Authorization: Bearer sk_live_...
   },
   servers: [
     {
-      url: 'http://localhost:3000',
-      description: 'Servidor Local de Desenvolvimento',
+      url: '/',
+      description: 'Servidor Atual (Produção / Vercel)',
     },
     {
-      url: 'https://leads.botao.centraloficial2.com.br',
-      description: 'Servidor de Produção',
+      url: 'https://api-licencas-minhas-ferramentas.vercel.app',
+      description: 'Servidor Oficial Vercel',
+    },
+    {
+      url: 'http://localhost:3000',
+      description: 'Servidor Local de Desenvolvimento',
     },
   ],
   components: {

@@ -107,66 +107,80 @@
       </p>
 
       <div class="code-tabs">
-        <button class="code-tab-btn active" onclick="switchSnippet('js')">JavaScript / Node</button>
-        <button class="code-tab-btn" onclick="switchSnippet('python')">Python</button>
-        <button class="code-tab-btn" onclick="switchSnippet('php')">PHP</button>
-        <button class="code-tab-btn" onclick="switchSnippet('curl')">cURL</button>
+        <button class="code-tab-btn active" onclick="switchSnippet('create-js')">Criar Licença (Node.js)</button>
+        <button class="code-tab-btn" onclick="switchSnippet('create-python')">Criar Licença (Python)</button>
+        <button class="code-tab-btn" onclick="switchSnippet('create-curl')">Criar Licença (cURL)</button>
+        <button class="code-tab-btn" onclick="switchSnippet('verify-js')">Validar Licença (Extensão JS)</button>
+        <button class="code-tab-btn" onclick="switchSnippet('verify-curl')">Validar (cURL)</button>
       </div>
 
-      <pre id="snip-js" class="code-block"><code>const response = await fetch('http://localhost:3000/api/v1/licenses/verify', {
+      <!-- Criar Licença Node -->
+      <pre id="snip-create-js" class="code-block"><code>const response = await fetch(`${window.location.origin}/api/v1/licenses`, {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'Authorization': 'Bearer sk_live_SUA_CHAVE_AQUI'
+    'Authorization': 'Bearer sk_live_SUA_API_KEY'
   },
   body: JSON.stringify({
-    licenseKey: 'EJUM-YHEM-UC96-J1VD',
-    extensionId: 'dszap'
+    clientName: 'João da Silva',
+    clientEmail: 'joao@cliente.com',
+    extensionId: 'youtube', // dszap, sender, tele, email, etc.
+    validityDays: 365
   })
 });
-
 const data = await response.json();
-console.log(data);</code></pre>
+console.log('Chave gerada:', data.data.license_key);</code></pre>
 
-      <pre id="snip-python" class="code-block" style="display: none;"><code>import requests
+      <!-- Criar Licença Python -->
+      <pre id="snip-create-python" class="code-block" style="display: none;"><code>import requests
 
-url = "http://localhost:3000/api/v1/licenses/verify"
+url = f"{window.location.origin}/api/v1/licenses"
 headers = {
     "Content-Type": "application/json",
-    "Authorization": "Bearer sk_live_SUA_CHAVE_AQUI"
+    "Authorization": "Bearer sk_live_SUA_API_KEY"
 }
 payload = {
-    "licenseKey": "EJUM-YHEM-UC96-J1VD",
-    "extensionId": "dszap"
+    "clientName": "João da Silva",
+    "clientEmail": "joao@cliente.com",
+    "extensionId": "youtube",
+    "validityDays": 365
 }
+res = requests.post(url, json=payload, headers=headers)
+print(res.json())</code></pre>
 
-response = requests.post(url, json=payload, headers=headers)
-print(response.json())</code></pre>
-
-      <pre id="snip-php" class="code-block" style="display: none;"><code>&lt;?php
-$ch = curl_init('http://localhost:3000/api/v1/licenses/verify');
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-  'Content-Type: application/json',
-  'Authorization: Bearer sk_live_SUA_CHAVE_AQUI'
-]);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-  'licenseKey' => 'EJUM-YHEM-UC96-J1VD',
-  'extensionId' => 'dszap'
-]));
-
-$response = curl_exec($ch);
-curl_close($ch);
-echo $response;
-?&gt;</code></pre>
-
-      <pre id="snip-curl" class="code-block" style="display: none;"><code>curl -X POST http://localhost:3000/api/v1/licenses/verify \
+      <!-- Criar Licença cURL -->
+      <pre id="snip-create-curl" class="code-block" style="display: none;"><code>curl -X POST https://api-licencas-minhas-ferramentas.vercel.app/api/v1/licenses \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk_live_SUA_CHAVE_AQUI" \
+  -H "Authorization: Bearer sk_live_SUA_API_KEY" \
   -d '{
-    "licenseKey": "EJUM-YHEM-UC96-J1VD",
-    "extensionId": "dszap"
+    "clientName": "João da Silva",
+    "clientEmail": "joao@cliente.com",
+    "extensionId": "youtube",
+    "validityDays": 365
+  }'</code></pre>
+
+      <!-- Validar Licença JS -->
+      <pre id="snip-verify-js" class="code-block" style="display: none;"><code>const response = await fetch(`${window.location.origin}/api/v1/licenses/verify`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer sk_live_SUA_API_KEY'
+  },
+  body: JSON.stringify({
+    licenseKey: 'CHAVE-DA-LICENCA',
+    extensionId: 'youtube'
+  })
+});
+const data = await response.json();
+console.log('Licença válida?', data.data?.valid);</code></pre>
+
+      <!-- Validar Licença cURL -->
+      <pre id="snip-verify-curl" class="code-block" style="display: none;"><code>curl -X POST https://api-licencas-minhas-ferramentas.vercel.app/api/v1/licenses/verify \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_live_SUA_API_KEY" \
+  -d '{
+    "licenseKey": "CHAVE-DA-LICENCA",
+    "extensionId": "youtube"
   }'</code></pre>
     </div>
   </div>
@@ -177,6 +191,13 @@ echo $response;
   <script src="https://unpkg.com/swagger-ui-dist@5.18.2/swagger-ui-standalone-preset.js"></script>
   <script>
     window.onload = function() {
+      // Ajusta URLs dinamicamente se necessário
+      const origin = window.location.origin;
+      const codeBlocks = document.querySelectorAll('pre.code-block code');
+      codeBlocks.forEach(block => {
+        block.innerHTML = block.innerHTML.replace(/\$\{window\.location\.origin\}/g, origin);
+      });
+
       window.ui = SwaggerUIBundle({
         url: "/api/openapi.json",
         dom_id: '#swagger-ui',
@@ -189,14 +210,16 @@ echo $response;
       });
     };
 
-    function switchSnippet(lang) {
+    function switchSnippet(key) {
       document.querySelectorAll('.code-tab-btn').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
+      if (event && event.target) {
+        event.target.classList.add('active');
+      }
 
-      document.getElementById('snip-js').style.display = lang === 'js' ? 'block' : 'none';
-      document.getElementById('snip-python').style.display = lang === 'python' ? 'block' : 'none';
-      document.getElementById('snip-php').style.display = lang === 'php' ? 'block' : 'none';
-      document.getElementById('snip-curl').style.display = lang === 'curl' ? 'block' : 'none';
+      ['create-js', 'create-python', 'create-curl', 'verify-js', 'verify-curl'].forEach(k => {
+        const el = document.getElementById('snip-' + k);
+        if (el) el.style.display = k === key ? 'block' : 'none';
+      });
     }
   </script>
 </body>
