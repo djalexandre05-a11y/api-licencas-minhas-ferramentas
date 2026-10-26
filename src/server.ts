@@ -92,11 +92,13 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-export const server = app.listen(PORT, () => {
-  console.log(`🚀 Sistema Profissional de API REST rodando com sucesso!`);
-  console.log(`📡 URL Base da API: http://localhost:${PORT}/api/v1/`);
-  console.log(`📚 Documentação Interativa: http://localhost:${PORT}/api/docs`);
-  console.log(`⚙️  Painel Administrativo: http://localhost:${PORT}/`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Sistema Profissional de API REST rodando com sucesso!`);
+    console.log(`📡 URL Base da API: http://localhost:${PORT}/api/v1/`);
+    console.log(`📚 Documentação Interativa: http://localhost:${PORT}/api/docs`);
+    console.log(`⚙️  Painel Administrativo: http://localhost:${PORT}/`);
+  });
+}
 
 export default app;

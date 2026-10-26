@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Sistema Profissional de API REST - Gerenciador de Licenças, Extensões e API Keys",
   "main": "dist/server.js",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
